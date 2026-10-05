@@ -1,0 +1,35 @@
+@model Order
+@{
+    ViewBag.Title = "New order";
+}
+<h1>New order from copy</h1>
+@Html.ValidationSummary()
+@using (Html.BeginForm("Draft", "Orders", FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    <table>
+        <thead>
+            <tr><th>#</th><th>SKU</th><th>Product</th><th>Quantity (0 removes the line)</th></tr>
+        </thead>
+        <tbody>
+            @for (var i = 0; i < Model.Lines.Count; i++)
+            {
+                <tr>
+                    <td>@Model.Lines[i].LineNumber</td>
+                    <td>@Model.Lines[i].Sku</td>
+                    <td>@Model.Lines[i].ProductName</td>
+                    <td><input name="Quantities[@i]" type="number" min="0" value="@Model.Lines[i].Quantity" /></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <label for="DeliveryAddress">Delivery address</label>
+    <input id="DeliveryAddress" name="DeliveryAddress" value="@Model.DeliveryAddress" />
+    <label for="Channel">Received by</label>
+    <select id="Channel" name="Channel">
+        <option value="Phone">Phone</option>
+        <option value="Email">E-mail</option>
+        <option value="OrderForm">Order form</option>
+    </select>
+    <button type="submit">Create order</button>
+}

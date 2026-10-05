@@ -1,0 +1,44 @@
+@model Order
+@{
+    ViewBag.Title = Model.OrderNumber;
+}
+<h1>Order @Model.OrderNumber</h1>
+<dl>
+    <dt>Date</dt><dd>@Model.OrderDate.ToString("yyyy-MM-dd HH:mm")</dd>
+    <dt>Status</dt><dd>@Model.Status</dd>
+    <dt>Channel</dt><dd>@Model.Channel</dd>
+    <dt>Entered by</dt><dd>@Model.CreatedBy</dd>
+    <dt>Delivery address</dt><dd>@Model.DeliveryAddress</dd>
+</dl>
+<table>
+    <thead>
+        <tr><th>#</th><th>SKU</th><th>Product</th><th>Qty</th><th>Unit price</th><th>Discount</th><th>Line total</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var line in Model.Lines)
+        {
+            <tr>
+                <td>@line.LineNumber</td>
+                <td>@line.Sku</td>
+                <td>@line.ProductName</td>
+                <td>@line.Quantity</td>
+                <td>@line.UnitPrice.ToString("N2")</td>
+                <td>@line.DiscountPercent.ToString("0.##") %</td>
+                <td>@line.LineTotal.ToString("N2")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+<p>Order discount: @Model.OrderDiscountPercent.ToString("0.##") % · <strong>Total: @Model.Total.ToString("N2") EUR</strong></p>
+@if (Model.Status == OrderStatus.Delivered && !string.IsNullOrEmpty(Model.InvoiceNumber))
+{
+    <p>@Html.ActionLink("Download invoice " + Model.InvoiceNumber, "Invoice", new { id = Model.Id })</p>
+}
+@using (Html.BeginForm("ChangeStatus", "Orders", new { id = Model.Id }, FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    <label for="status">Change status</label>
+    @Html.DropDownList("status", EnumHelper.GetSelectList(typeof(OrderStatus)))
+    <button type="submit">Apply</button>
+}
+<p>@Html.ActionLink("Back to customer orders", "Index", new { customerId = Model.CustomerId })</p>

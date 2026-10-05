@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <meta name="description" content="A hands-on HVE Squad workshop: shape a product, plan an Azure migration and modernize a .NET application with three cooperating squads." />
+    <title>HVE Squad | Hands-on workshop</title>
+    <script>
+      (() => {
+        let saved = null
+        try { saved = localStorage.getItem('hve-squad-hands-on-theme') } catch { /* storage unavailable */ }
+        const param = new URLSearchParams(window.location.search).get('theme')
+        const pick = [param, saved].find(value => value === 'light' || value === 'dark')
+        document.documentElement.dataset.theme = pick ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>This interactive workshop guide requires JavaScript.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

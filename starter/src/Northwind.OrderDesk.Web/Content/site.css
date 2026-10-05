@@ -1,0 +1,8 @@
+body { font-family: "Segoe UI", Tahoma, sans-serif; margin: 0; color: #222; }
+header { background: #1f3a5f; color: #fff; padding: 12px 24px; display: flex; justify-content: space-between; }
+header a { color: #fff; font-weight: bold; text-decoration: none; }
+main { padding: 24px; }
+table { border-collapse: collapse; margin: 16px 0; }
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+.message { background: #eef6e8; border: 1px solid #9c6; padding: 8px 12px; }
+footer { padding: 12px 24px; color: #777; font-size: 12px; }

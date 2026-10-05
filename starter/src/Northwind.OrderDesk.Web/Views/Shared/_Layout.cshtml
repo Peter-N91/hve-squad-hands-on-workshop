@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewBag.Title - Northwind Order Desk</title>
+    <link href="~/Content/site.css" rel="stylesheet" />
+</head>
+<body>
+    <header>
+        <a href="@Url.Action("Index", "Home")">Northwind Order Desk</a>
+        <span>@User.Identity.Name</span>
+    </header>
+    <main>
+        @if (TempData["Message"] != null)
+        {
+            <p class="message">@TempData["Message"]</p>
+        }
+        @RenderBody()
+    </main>
+    <footer>Northwind Traders · Order Desk 3.4</footer>
+</body>
+</html>

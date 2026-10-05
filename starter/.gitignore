@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+packages/
+TestResults/
+*.user
+*.suo
+.vs/
+
+# Local tooling
+node_modules/
+apm_modules/
+.env
+.env.*
+*.local
+
+# OS files
+.DS_Store
+Thumbs.db

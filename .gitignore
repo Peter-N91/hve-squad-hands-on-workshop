@@ -1,0 +1,25 @@
+node_modules
+dist
+dist-ssr
+*.local
+*.log
+
+# Generated from starter/ by scripts/build-starter.mjs
+public/starter/
+
+# Build output of the legacy starter solution if built in place
+starter/**/bin/
+starter/**/obj/
+starter/**/packages/
+starter/**/.vs/
+
+# Workshop runs never belong in the guide repository
+.copilot-tracking/
+artifacts/
+.env
+.env.*
+
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store

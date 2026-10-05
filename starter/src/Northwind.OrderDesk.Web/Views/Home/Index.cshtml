@@ -1,0 +1,12 @@
+@{
+    ViewBag.Title = "Home";
+}
+<h1>Order Desk</h1>
+<p>Signed in as @ViewBag.UserName.</p>
+@using (Html.BeginForm("FindCustomer", "Home", FormMethod.Post))
+{
+    @Html.AntiForgeryToken()
+    <label for="customerId">Customer number</label>
+    <input id="customerId" name="customerId" type="number" min="1" required />
+    <button type="submit">Show orders</button>
+}
