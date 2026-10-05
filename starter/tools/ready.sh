@@ -23,6 +23,9 @@ has_git=0
 if command -v git >/dev/null 2>&1; then has_git=1; row "Git" "All parts" "OK" "$(first git --version)"
 else row "Git" "All parts" "MISSING" "Install: brew install git"; fi
 
+if command -v pwsh >/dev/null 2>&1; then row "PowerShell 7+" "All parts" "OK" "$(first pwsh --version)"
+else row "PowerShell 7+" "All parts" "MISSING" "Scribe ledger and routing need it: brew install --cask powershell"; fi
+
 if command -v copilot >/dev/null 2>&1; then
   row "GitHub Copilot CLI" "CLI client only" "OK" "$(first copilot --version)"
   plugins="$(copilot plugin list 2>&1)"

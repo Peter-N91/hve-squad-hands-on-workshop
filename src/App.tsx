@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   agenda, apmCliReleaseUrl, apmCliVersion, docsUrl, installation, lessons, lifecycleSteps, modeRule, modelGuidance,
-  notNeeded, observationNote, prerequisites, routingNote, routingOptions, sources, squadVersion, troubleshooting,
+  notNeeded, observationNote, prerequisites, pwshNote, routingNote, routingOptions, sources, squadVersion, troubleshooting,
 } from './content'
 import type { Lesson, LessonStep, Prompt, SquadKey } from './content'
 import {
@@ -254,6 +254,7 @@ function App() {
           </table>
           <p className="small">You do <strong>not</strong> need:</p>
           <ul className="not-needed">{notNeeded.map(item => <li key={item}>{item}</li>)}</ul>
+          <p className="small">{pwshNote}</p>
         </section>
         {starterPanel('Step 1 · Get the starter solution')}
       </>}

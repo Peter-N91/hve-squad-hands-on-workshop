@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import {
-  agenda, autopilotMode, installation, lessons, lifecycleSteps, readinessQuestion, readyScript, routingOptions, sources, squadVersion, suggestedSquads, troubleshooting,
+  agenda, autopilotMode, installation, lessons, lifecycleSteps, prerequisites, readinessQuestion, readyScript, routingOptions, sources, squadVersion, suggestedSquads, troubleshooting,
 } from '../src/content.ts'
 import {
   agentSelection, checkLabel, coreCheckIds, decodeState, defaults, fillNames, missingSetup, optionalCheckIds, progress, promptBlockers,
@@ -266,6 +266,11 @@ test('the starter zip is a valid archive with matching checksums', () => {
 })
 
 test('sources are https and versions are consistent', () => {
+  const pwsh = prerequisites.find(item => item.what.startsWith('PowerShell 7'))
+  assert.equal(pwsh?.scope, 'everyone')
+  assert.match(pwsh.mac, /brew install --cask powershell/)
+  assert.match(starterText('tools/ready.ps1'), /'PowerShell 7\+' 'All parts'/)
+  assert.match(starterText('tools/ready.sh'), /command -v pwsh[\s\S]*"PowerShell 7\+" "All parts"/)
   for (const source of sources) assert.match(source.url, /^https:\/\//)
   assert.equal(squadVersion, '0.18.0')
   assert.match(installation.apm.text, /hve-squad#v0\.18\.0/)

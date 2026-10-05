@@ -102,8 +102,9 @@ export type Prerequisite = {
 
 export const prerequisites: Prerequisite[] = [
   { what: 'GitHub account with Copilot', why: 'Runs every agent in the workshop.', part: 'All parts', check: 'Sign in to your Copilot client', windows: 'Ask your GitHub admin for a Copilot Business or Enterprise seat', mac: 'Same as Windows', scope: 'everyone' },
-  { what: 'One Copilot client', why: 'Where you talk to the squad. Pick one and stay with it.', part: 'All parts', check: 'App opens / copilot --version / VS Code Copilot Chat', windows: 'App: github.com/features/copilot · CLI: winget install GitHub.Copilot (needs PowerShell 7: winget install Microsoft.PowerShell) · VS Code: code.visualstudio.com', mac: 'App: github.com/features/copilot · CLI: brew install --cask copilot-cli · VS Code: code.visualstudio.com', scope: 'everyone' },
+  { what: 'One Copilot client', why: 'Where you talk to the squad. Pick one and stay with it.', part: 'All parts', check: 'App opens / copilot --version / VS Code Copilot Chat', windows: 'App: github.com/features/copilot · CLI: winget install GitHub.Copilot · VS Code: code.visualstudio.com', mac: 'App: github.com/features/copilot · CLI: brew install --cask copilot-cli · VS Code: code.visualstudio.com', scope: 'everyone' },
   { what: 'Git', why: 'Your workshop folder is a Git repository so every change is visible and reversible.', part: 'All parts', check: 'git --version', windows: 'winget install --id Git.Git -e', mac: 'xcode-select --install', scope: 'everyone' },
+  { what: 'PowerShell 7+ (pwsh)', why: 'The squad\'s Scribe writes the cost ledger and checks it with PowerShell 7 scripts, and model routing uses one too. Windows PowerShell 5.1 is not enough. Without it the squad falls back to slower, less reliable hand-written ledgers.', part: 'All parts', check: 'pwsh --version', windows: 'winget install --id Microsoft.PowerShell -e', mac: 'brew install --cask powershell', scope: 'everyone' },
   { what: `HVE Squad ${squadVersion}`, why: 'The squad coordinators and their specialists.', part: 'All parts', check: 'Step 3 below', windows: 'Installed in step 3, per client', mac: 'Installed in step 3, per client', scope: 'everyone' },
   { what: `APM CLI ${apmCliVersion} (exactly)`, why: 'Installs the /squad prompts into the folder. VS Code only.', part: 'VS Code users only', check: 'apm --version → 0.29.0', windows: "$env:VERSION = 'v0.29.0'; irm https://aka.ms/apm-windows | iex", mac: 'curl -sSL https://aka.ms/apm-unix | sh -s -- @v0.29.0', scope: 'client' },
   { what: 'Azure CLI with Bicep', why: 'Lets you check the infrastructure code locally. No Azure sign-in, no subscription.', part: 'Part 04 (recommended)', check: 'az bicep version', windows: 'winget install --id Microsoft.AzureCLI -e, then az bicep install', mac: 'brew install azure-cli, then az bicep install', scope: 'later' },
@@ -112,6 +113,7 @@ export const prerequisites: Prerequisite[] = [
 ]
 
 export const notNeeded = ['An Azure subscription', 'Visual Studio', 'Python, PDF readers or OCR', 'Node.js', 'Docker or Kubernetes', 'A Power Platform environment']
+export const pwshNote = 'Restart your Copilot client after installing PowerShell 7 so it finds pwsh on PATH. On macOS and Linux you keep using your usual shell; pwsh only needs to be installed.'
 
 export const installation: Record<'cli' | 'cliUpdate' | 'apm', Prompt> = {
   cli: {

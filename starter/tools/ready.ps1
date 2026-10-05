@@ -54,8 +54,12 @@ if ($copilot) {
 } else {
     Add-Result 'GitHub Copilot CLI' 'CLI client only' 'NOT FOUND' 'Skip if you use the Copilot App or VS Code. Install: winget install GitHub.Copilot'
 }
-if ($PSVersionTable.PSVersion.Major -lt 7 -and -not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
-    Add-Result 'PowerShell 7' 'CLI client only' 'MISSING' 'Copilot CLI on Windows needs it: winget install Microsoft.PowerShell'
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    Add-Result 'PowerShell 7+' 'All parts' 'OK' "pwsh $($PSVersionTable.PSVersion)"
+} else {
+    $pwsh = Get-FirstLine 'pwsh' @('--version')
+    if ($pwsh) { Add-Result 'PowerShell 7+' 'All parts' 'OK' $pwsh }
+    else { Add-Result 'PowerShell 7+' 'All parts' 'MISSING' 'The Scribe ledger and model routing need it: winget install --id Microsoft.PowerShell -e' }
 }
 
 # .NET 10 SDK - Part 05
