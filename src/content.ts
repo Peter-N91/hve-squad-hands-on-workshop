@@ -57,7 +57,7 @@ export type Lesson = {
   recovery: string
 }
 
-export const squadVersion = '0.17.0'
+export const squadVersion = '0.18.0'
 export const apmCliVersion = 'v0.29.0'
 export const apmCliReleaseUrl = `https://github.com/microsoft/apm/releases/tag/${apmCliVersion}`
 export const autopilotMode = 'mode="autopilot"'
@@ -72,12 +72,20 @@ export const suggestedSquads: Record<SquadKey, string> = {
 
 export const modeRule = {
   title: 'Three kinds of message — and only one uses autopilot',
-  body: 'Setup messages (init and promote) never include mode="autopilot": you confirm each proposal yourself. Work requests always include it, so the squad runs research → plan → build → review on its own and stops only for approvals that matter. Questions and answers (readiness, intake, your business answers, status) have no mode at all. The guide adds the right form to every copied block; you never type it yourself.',
+  body: 'Setup messages (init and promote) never include mode="autopilot": you confirm each proposal yourself. Work requests always include it, together with the model routing you choose, so the squad runs research → plan → build → review on its own and stops only for approvals that matter. Questions (readiness, status) have no mode at all. The guide adds the right form to every copied block; you never type it yourself.',
 }
 
+export type Routing = 'off' | 'ranked' | 'manual'
+export const routingOptions: { value: Routing; label: string; summary: string; detail: string }[] = [
+  { value: 'off', label: 'Off', summary: 'Every role uses your session model.', detail: 'No model is chosen per role: each specialist runs on its own default or on the model you selected in your client. The simplest and most predictable option, and the package default.' },
+  { value: 'ranked', label: 'Ranked', summary: 'The squad picks the best-fitting model for each role.', detail: 'Each role is matched to the model that best fits its kind of work (research, planning, implementation, review…) among the models your client offers, at the lowest cost for that fit. The picks appear in a Model column in team.md.' },
+  { value: 'manual', label: 'Manual', summary: 'You choose each role\'s model once, with suggestions.', detail: 'Before the first dispatch the squad asks you: accept all suggestions, pick one model per kind of work, or pick per role. Only models your client can run are offered. Your picks are saved in team.md.' },
+]
+export const routingNote = 'The choice is saved in each team\'s team.md and stays in effect until you change it. The guide repeats it on every work request so it is always explicit. Routing never changes the session model you selected: that model runs the coordinator.'
+
 export const modelGuidance = {
-  title: 'Pick a strong model before you start — and keep it',
-  body: 'HVE Squad sends long, structured instructions to every specialist. Use Claude Sonnet 5 or a stronger model for the whole workshop. Do not use Auto or a small, fast model: they tend to summarize the instructions instead of following them, which shows up as skipped logging, empty decision records, unexpected dispatches and very different token usage between participants. Record the model you used in your evidence log so results can be compared fairly.',
+  title: 'Pick a strong session model before you start — and keep it',
+  body: 'Your session model runs the coordinator, which reads the roster, plans the stages and dispatches every role; model routing never changes it. Start on a fixed, balanced model at least as capable as Claude Sonnet 5.5 (for example claude-sonnet-5.5 or gpt-6-sol) and keep it for the whole workshop. Do not use Auto or a small, fast model: they tend to summarize the instructions instead of following them, which shows up as skipped logging, empty decision records, unexpected dispatches and very different token usage between participants. Record the session model and your routing choice in your evidence log.',
 }
 
 export const observationNote = 'These are behaviors to watch for, not instructions to paste. Record what actually happens in your evidence log. If something is missing, note it rather than adding it to the request: that is how we learn what the squad does on its own.'
@@ -153,14 +161,14 @@ export const lessons: Lesson[] = [
       { title: 'Get the starter solution', body: 'Use the button above. In Edge or Chrome you choose a folder on your computer and the guide writes a northwind-workshop folder into it. In other browsers you get a zip file: extract it wherever you like. Nothing is uploaded; the files come from this website.' },
       { title: 'Run the readiness check', body: 'Open a terminal inside the northwind-workshop folder and run the command for your system. It lists what is installed, flags what is missing for each part, and turns the folder into a Git repository with a first commit tagged "starter". It installs nothing and is safe to run again.', prompt: readyScript },
       { title: 'Install HVE Squad in your client', body: 'Follow the panel below for the client selected at the top of the page. Install once, in the client you will actually use. Then confirm that Squad Coordinator and Squad Federation Coordinator both appear in the agent list (App, CLI) or that /squad and /squad-federation appear as prompts (VS Code).' },
-      { title: 'Choose your model', body: 'Select Claude Sonnet 5 or a stronger model in your client now, and keep it for the whole workshop. Not Auto. Write the model name in your evidence log.' },
+      { title: 'Choose your model and routing', body: 'Select a balanced model at least as capable as Claude Sonnet 5.5 in your client now, and keep it for the whole workshop. Not Auto. Then choose the model routing at the top of this page (Off, Ranked or Manual) — the guide adds it to every work request. Write both in your evidence log.' },
       { title: 'Check that Copilot can read the case', body: 'Open the northwind-workshop folder in your client. With no squad agent selected, ask the question below. Compare the answer with the documents: the deadline is 30 June 2027 (C-01) and Order Desk runs on .NET Framework 4.8 (CS-01). If the answer is wrong or vague, tell the facilitator before the session.', prompt: readinessQuestion },
     ],
     evidence: ['A northwind-workshop folder that is a Git repository with the tag "starter"', 'The readiness check output', 'The model name and client you will use'],
     checks: [
       'My northwind-workshop folder exists and the readiness check shows Git OK.',
       `HVE Squad ${squadVersion} is installed in my client and both coordinators are visible.`,
-      'I selected Claude Sonnet 5 or a stronger model, not Auto.',
+      'I selected a model at least as capable as Claude Sonnet 5.5 (not Auto) and chose a model routing.',
       'Copilot read the case and correctly gave the deadline (C-01) and the current .NET version (CS-01).',
     ],
     recovery: 'Tell the facilitator what is blocked before the session. A missing tool for Parts 03–05 does not stop you from starting: those parts say exactly what they need.',
@@ -172,8 +180,8 @@ export const lessons: Lesson[] = [
     inputs: ['Your northwind-workshop folder open in your client', 'knowledge-docs/business-case.md'],
     steps: [
       { title: 'Read the case in five minutes', body: 'Northwind Traders, a food distributor in Lyon, wants a Customer Portal so customers can reorder, track orders and download invoices (BR-01 to BR-12). Its Order Desk application runs on .NET Framework 4.8 in a data centre whose lease ends on 30 June 2027 (C-01). Every fact has an identifier. That is deliberate: you will use those identifiers to catch invented or missing requirements.' },
-      { title: 'Follow the chain', body: 'Product init → intake questions → your answers → product work → (optional) publish to Azure DevOps → promote → migration init → migration work → modernization init → modernization work → status across teams. Setup and work are always separate messages.' },
-      { title: 'Know the three kinds of message', body: 'Setup (init, promote): no autopilot, you confirm. Work: autopilot, the squad runs the whole pipeline and stops for approvals. Questions: read-only, no mode. The guide labels every block and adds the right form for your client.' },
+      { title: 'Follow the chain', body: 'Product init → product work (the intake validator checks the case first) → (optional) publish to Azure DevOps → promote → migration init → migration work → modernization init → modernization work → status across teams. Setup and work are always separate messages.' },
+      { title: 'Know the three kinds of message', body: 'Setup (init, promote): no autopilot, you confirm. Work: autopilot plus your model routing, the squad runs the whole pipeline and stops for approvals. Questions: read-only, no mode. The guide labels every block and adds the right form for your client.' },
       { title: 'Keep an honest evidence log', body: 'Download the evidence log from Resources. Record what the squad did without being asked, what needed your answer, and what was missing. The checkboxes in this guide are only your own record; they do not inspect your project.' },
     ],
     evidence: ['The evidence log, started, with your client and model'],
@@ -183,8 +191,8 @@ export const lessons: Lesson[] = [
   {
     id: 'product', number: '02', title: 'Shape the product', eyebrow: 'From business case to backlog', minutes: 60,
     goal: 'Turn the business case into reviewed requirements, an experiment and a prioritized backlog — with every statement traceable to its source.',
-    concept: 'You set up one planning team, let it find the gaps first, answer them as the customer would, and only then ask for the documents. Answering before drafting is what keeps invented requirements out.',
-    inputs: ['knowledge-docs (business case, current state, engineering standards)', 'The business answers on this page — you play Northwind'],
+    concept: 'You set up one planning team, then send a single work request. The team\'s intake validator checks the case for gaps and contradictions on its own before anything is drafted, and asks you when it needs a business decision. Your job is to answer as the customer and to check that nothing was quietly invented.',
+    inputs: ['knowledge-docs (business case, current state, engineering standards)', 'The business answers on this page — you play Northwind when the squad asks'],
     setup: [{
       id: 'product-team',
       title: '1. Set up the planning team',
@@ -202,27 +210,11 @@ export const lessons: Lesson[] = [
     }],
     flow: [
       {
-        heading: '2. Ask for the gaps first',
-        hint: 'Still with Squad Coordinator. This is a read-only question: the squad reviews the case and tells you what is unclear before writing anything.',
-        prompt: {
-          title: 'What is unclear or contradictory?', kind: 'question', entry: 'squad', requiresSetup: ['product-team'],
-          text: 'Before we write any requirements, review knowledge-docs at the root of this repository and list:\n1. Open questions we must answer.\n2. Contradictions or conflicts between the documents.\n3. Anything important that is missing.\nCite the identifiers involved and say which stakeholder should answer each point. Do not draft any documents yet.',
-        },
-      },
-      {
-        heading: '3. Answer as Northwind',
-        hint: 'Compare the squad\'s list with the business answers below, then send the answers. If the squad asked something not covered here, add your own answer or ask it to record the point as OPEN with an owner.',
-        prompt: {
-          title: "Northwind's answers", kind: 'question', entry: 'squad', requiresSetup: ['product-team'],
-          text: "Here are Northwind's answers. Record each one as a decision with its source, then wait for my next request.\n- OQ-01: Customer users sign in with Microsoft Entra External ID. Northwind staff keep their Entra ID accounts (NFR-04).\n- OQ-02: The first release is in French and English. Dutch follows in the second release.\n- OQ-03: Only about 120 large customers have a customer administrator. For all other customers, Order Desk staff manage portal users.\n- BR-04 and CS-10: For the first release an order status may be up to 1 hour old. Shipment updates from StockPilot must therefore arrive at least every hour instead of nightly.\n- BR-07: Invoices older than 24 months do not need to be available in the portal.\nAnything else not answered here stays OPEN with the owner you proposed.",
-        },
-      },
-      {
-        heading: '4. Ask for the product documents',
-        hint: 'Now the work request. It includes mode="autopilot": the squad plans, writes and reviews the documents itself, and shows you the result.',
+        heading: '2. Ask for the product documents',
+        hint: 'Still with Squad Coordinator. One work request with mode="autopilot": the squad assesses the case itself — its intake validator looks for gaps and contradictions before anything is drafted — then plans, writes and reviews the documents. If it asks you something, answer as Northwind using the panel below.',
         prompt: {
           title: 'Prepare the product documents', kind: 'work', entry: 'squad', requiresSetup: ['product-team'],
-          text: "Using knowledge-docs at the root of this repository and the answers I gave, turn Northwind's business case into documents my team can review and build from:\n1. A business requirements document.\n2. A product requirements document for the first release of the Customer Portal.\n3. A Minimum Viable Experiment that tests the riskiest assumption before we commit to building.\n4. A prioritized backlog of epics, features and user stories with acceptance criteria, and a proposed first release.\nFollow engineering-standards.md for the writing style, the file locations and traceability: cite the source identifier for every requirement and story, label assumptions and open questions, and include the traceability table. I want documents to review, not an implementation.",
+          text: "Using knowledge-docs at the root of this repository, turn Northwind's business case into documents my team can review and build from:\n1. A business requirements document.\n2. A product requirements document for the first release of the Customer Portal.\n3. A Minimum Viable Experiment that tests the riskiest assumption before we commit to building.\n4. A prioritized backlog of epics, features and user stories with acceptance criteria, and a proposed first release.\nFollow engineering-standards.md for the writing style, the file locations and traceability: cite the source identifier for every requirement and story, label assumptions and open questions, and include the traceability table. I want documents to review, not an implementation.",
         },
       },
     ],
@@ -234,8 +226,9 @@ export const lessons: Lesson[] = [
       { question: 'BR-07 · How far back do invoices go?', answer: '24 months.' },
     ],
     behaviors: [
-      'The intake question surfaces the conflict between BR-04 ("always up to date") and CS-10 (nightly StockPilot batch) without being told where to look.',
-      'The squad records your answers as decisions rather than only acknowledging them in chat.',
+      'Before drafting, the intake validator assesses the case on its own and raises gaps and contradictions — for example BR-04 ("always up to date") against CS-10 (nightly StockPilot batch) — without being told where to look.',
+      'Each gap is either put to you as a question or recorded as an ASSUMPTION or OPEN item with an owner; nothing is silently invented.',
+      'Your answers are recorded as decisions, not only acknowledged in chat.',
       'If the work needs a role the team does not have, the squad proposes adding it and asks for consent.',
       'If a council is convened, it is sized to the work and recorded in the decision log with the roles that took part.',
     ],
@@ -245,22 +238,23 @@ export const lessons: Lesson[] = [
       items: [
         { label: 'Coverage', detail: 'Open the traceability table. Every BR-01 to BR-12 and NFR-01 to NFR-08 must appear, either covered by a story or listed as not covered with a reason.' },
         { label: 'Invention', detail: 'Pick three stories. For each, open the identifier it cites. Does the source really say that? Anything else must be labelled ASSUMPTION.' },
-        { label: 'Answers used', detail: 'Search for OQ-01 and BR-07. Entra External ID and the 24-month limit should appear exactly as you answered.' },
+        { label: 'Intake', detail: 'Find OQ-01 to OQ-03 and the BR-04 / CS-10 conflict. Each should be resolved by your answer or listed as ASSUMPTION or OPEN with an owner — never quietly decided.' },
         { label: 'Readability', detail: 'Give one story to someone who has not read the case. Could they build it from the story and its Given/When/Then criteria alone (ES-05)?' },
         { label: 'First release', detail: 'Is the proposed first release inside the Must requirements, and does it explain anything it leaves out?' },
       ],
     },
     steps: [
+      { title: 'Watch the intake', body: 'Note what the intake validator found on its own, which questions it asked you and which points it recorded as assumptions. Answer only what it asks, using the business answers panel. Did it catch BR-04 against CS-10?' },
       { title: 'Check coverage and invention', body: 'Use the review key above. Record how many requirements were covered, how many invented statements you found and whether they were labelled as assumptions.' },
       { title: 'Challenge the experiment', body: 'A Minimum Viable Experiment tests an assumption before you build; it is not an MVP. Which assumption did the squad pick (for example, that customers will actually reorder online — SM-01)? What is the cheapest test, the measure and the decision threshold? An experiment that has not been run has no results.' },
       { title: 'Correct, do not rewrite', body: 'If something is wrong, tell the squad what is wrong and why, citing the identifier, and let it fix the document. That correction is part of your evidence.' },
       { title: 'Agree the first release', body: 'Agree which stories form the first release and note anything deferred. The migration and modernization teams will build on this agreement.' },
     ],
-    evidence: ['docs/product with BRD, PRD, experiment, backlog and traceability table', 'Your coverage and invention counts', 'At least one correction you asked for'],
+    evidence: ['docs/product with BRD, PRD, experiment, backlog and traceability table', 'What the intake found on its own, and what it asked you', 'Your coverage and invention counts', 'At least one correction you asked for'],
     checks: [
       'The traceability table lists every BR- and NFR- identifier.',
       'I checked three stories against their sources and recorded what I found.',
-      'My answers to the open questions appear in the documents.',
+      'Every open question and the BR-04 / CS-10 conflict is answered or labelled ASSUMPTION or OPEN.',
       'I agreed a first release and can explain what is out of it.',
     ],
     recovery: 'If the documents are not finished after 45 minutes, ask the squad to finish the backlog and traceability table first: the later teams depend on them. Never copy documents from another participant to catch up — note the gap instead.',
@@ -331,10 +325,10 @@ export const lessons: Lesson[] = [
     ],
     flow: [{
       heading: '3. Ask for the migration plan',
-      hint: 'The guide adds squad="…" so the request goes to the migration team, plus mode="autopilot". Expect this to take 20 to 35 minutes; review the product of each stage as it appears.',
+      hint: 'The guide adds squad="…" so the request goes to the migration team, plus mode="autopilot" and your model routing. Expect this to take 20 to 35 minutes; review the product of each stage as it appears.',
       prompt: {
         title: 'Plan the move to Azure', kind: 'work', entry: 'squad-federation', requiresSetup: ['migration-team'], squadTarget: 'migrationSquad',
-        text: 'Plan the move of Order Desk and its database to Azure before the data-centre lease ends (C-01), ready to host the Customer Portal first release described in docs/product. Use knowledge-docs, the code in src/ and the scripts in database/. I need:\n1. An assessment of everything that blocks running Order Desk on Azure platform services, with evidence (file and line) from the code and scripts.\n2. A target architecture: high-level and low-level design with decision records, including how Order Desk keeps exchanging data with StockPilot, which stays on premises (C-03), at least every hour.\n3. Bicep for a test and a production environment under infra/, following engineering-standards.md, validated locally with az bicep build but not deployed.\n4. A monthly cost estimate for both environments compared with the budget in C-04.\n5. A phased migration plan with data migration, cut-over and rollback steps that meets NFR-06.\n6. A numbered list of the application changes the .NET team must make so Order Desk runs on the chosen platform.\nFollow engineering-standards.md. Do not deploy, sign in to Azure or create any resource.',
+        text: 'Plan the move of Order Desk and its database to Azure before the data-centre lease ends (C-01), ready to host the Customer Portal first release described in docs/product. Use knowledge-docs, the code in src/ and the scripts in database/. I need:\n1. An assessment of everything that blocks running Order Desk on Azure platform services, with evidence (file and line) from the code and scripts.\n2. A target architecture: high-level and low-level design with decision records, including how Order Desk keeps exchanging data with StockPilot, which stays on premises (C-03), often enough to meet BR-04.\n3. Bicep for a test and a production environment under infra/, following engineering-standards.md, validated locally with az bicep build but not deployed.\n4. A monthly cost estimate for both environments compared with the budget in C-04.\n5. A phased migration plan with data migration, cut-over and rollback steps that meets NFR-06.\n6. A numbered list of the application changes the .NET team must make so Order Desk runs on the chosen platform.\nFollow engineering-standards.md. Do not deploy, sign in to Azure or create any resource.',
       },
     }],
     behaviors: [
@@ -356,7 +350,7 @@ export const lessons: Lesson[] = [
         { label: 'xp_cmdshell and bcp', detail: 'The StockPilot export shells out with xp_cmdshell (database/003-stockpilot-exchange.sql) — not available in Azure SQL Database or Managed Instance.' },
         { label: 'BULK INSERT from a local disk', detail: 'The shipment import reads D:\\Exchange (same file).' },
         { label: 'SQL Server Agent job', detail: 'The nightly exchange is scheduled by SQL Agent (same file header), which Azure SQL Database does not have.' },
-        { label: 'Status freshness', detail: 'Nightly batch versus the 1-hour answer you gave for BR-04.' },
+        { label: 'Status freshness', detail: 'The nightly batch (CS-10) cannot meet BR-04, nor the 1-hour limit if you gave that answer in Part 02.' },
         { label: 'No build pipeline', detail: 'Publishing from Visual Studio and copying files by hand (CS-19).' },
         { label: 'Data residency and recovery', detail: 'EU only (NFR-03, ES-20) and RPO 1 h / RTO 4 h (NFR-06), with no DR test ever (CS-23).' },
       ],
@@ -403,7 +397,7 @@ export const lessons: Lesson[] = [
     }],
     flow: [{
       heading: '2. Ask for the upgrade',
-      hint: 'The guide targets the modernization team and adds mode="autopilot". The squad may stop at a risk gate and ask you to approve with conditions — read the conditions before you answer.',
+      hint: 'The guide targets the modernization team and adds mode="autopilot" and your model routing. With Manual routing this new team asks for its own models first. The squad may stop at a risk gate and ask you to approve with conditions — read the conditions before you answer.',
       prompt: {
         title: 'Modernize Order Desk in place', kind: 'work', entry: 'squad-federation', requiresSetup: ['modernization-team'], squadTarget: 'modernizationSquad',
         text: 'Modernize Order Desk in place from .NET Framework 4.8 to .NET 10, following engineering-standards.md:\n1. Keep one solution with the existing Core, Web and Tests projects (ES-13), converted to SDK-style projects targeting net10.0.\n2. Move the web application from ASP.NET MVC 5 to ASP.NET Core MVC with the same pages and behaviour.\n3. Apply the application changes listed by the "{migrationSquad}" team — configuration, logging, data access, session state, invoice storage, authentication and e-mail — using the approaches its design selected.\n4. Keep the pricing behaviour and every existing test assertion (CS-20, ES-18). Tests may move to a current test framework; their expected values must not change.\n5. Finish when dotnet build and dotnet test succeed for src/Northwind.OrderDesk.sln on any operating system. If time is short, finish Core and Tests first, then the Web project.\n6. Record what changed, why and how it was verified in docs/modernization.\nDo not deploy.',
@@ -472,7 +466,7 @@ export const lessons: Lesson[] = [
     concept: 'Judge by evidence, not by confident summaries. An unfinished Web project with honest status is a better result than a "done" that fails its tests.',
     inputs: ['Your evidence log', 'Your counts: requirement coverage, invented statements, blockers found, tests passing'],
     steps: [
-      { title: 'Compare numbers (10 min)', body: 'Share your coverage, invention count, blocker score and test result with the group. Where results differ, compare the model, the client and whether you answered the intake questions.' },
+      { title: 'Compare numbers (10 min)', body: 'Share your coverage, invention count, blocker score and test result with the group. Where results differ, compare the session model, the model routing, the client and what the intake validator asked.' },
       { title: 'Name where a human was essential (5 min)', body: 'Which answer, correction or approval changed the outcome? That is where accountability stays with you.' },
       { title: 'Decide what your practice would standardize (10 min)', body: 'Engineering standards, identifiers in source documents, intake before drafting, review keys? Pick one thing to adopt and one real project to try it on.' },
     ],
@@ -493,7 +487,9 @@ export const troubleshooting: [string, string][] = [
   ['The coordinators are missing from the agent list', 'Check the client you actually use: the App and the CLI can have different plugin homes. Both hve-squad and hve-squad-hve-core must be installed. Do not also install the official hve-core plugin.'],
   ['"No squad state detected"', 'Normal before Part 02. The coordinator will propose a team when you send the first setup message.'],
   ['The squad convened a council that is not in the team or not logged', 'Record it in your evidence log: what triggered it, which roles took part, and whether decisions.md has an entry. Then ask the coordinator where the council is recorded. If it is not, report it as a GitHub issue with that evidence.'],
-  ['My token usage is very different from a colleague\'s', 'Compare models first: Auto and small models behave very differently from Sonnet-class models. Then compare whether the intake questions were answered. Some variation is normal for non-deterministic systems.'],
+  ['My token usage is very different from a colleague\'s', 'Compare the session model first (Auto and small models behave very differently from Sonnet-class models), then the model routing: ranked and manual send each role to a different model. Then compare what the intake validator asked. Some variation is normal for non-deterministic systems.'],
+  ['Which model routing should I choose?', 'Off if you want the simplest, most comparable run: every role uses your session model. Ranked if you want the squad to match each role to the best-fitting model your client offers. Manual if you want to choose yourself; the squad asks once before the first dispatch. All three work for this workshop.'],
+  ['Manual routing keeps asking for models', 'It asks once per team, before that team\'s first dispatch, and saves your picks in team.md. Each new team (migration, modernization) asks for its own roster. If VS Code rejects a pick, you are asked again with the models it actually offers.'],
   ['The documents contain requirements that are not in the case', 'Point the squad to the statement and the identifier it cites and ask it to either show the source or relabel it ASSUMPTION (ES-03). Count it in your evidence log.'],
   ['The stories are hard to read', 'Ask the squad to rewrite the specific story following ES-05, so that a developer who has not read the case can build it. Keep the before and after as evidence.'],
   ['Azure DevOps works in chat but not for the specialists', 'A known limitation in some clients: MCP servers configured for the session are not always visible to dispatched specialists. Let the coordinator publish, or skip Part 03. Use the official remote server only; behaviour differs with custom servers.'],
@@ -509,6 +505,7 @@ export const sources = [
   { name: `HVE Squad v${squadVersion} documentation`, url: docsUrl },
   { name: 'Getting started: install per client', url: `${docsUrl}getting-started.html` },
   { name: 'Usage: profiles, federation, promotion and autopilot', url: `${docsUrl}usage.html` },
+  { name: 'Usage: model selection per role (routing=)', url: `${docsUrl}usage.html#model-selection-per-role-routing` },
   { name: 'Demo: Product squad', url: `${docsUrl}demo-3.html` },
   { name: 'Demo: Migration autopilot', url: `${docsUrl}demo-2.html` },
   { name: 'Demo: Modernize .NET', url: `${docsUrl}demo-4.html` },

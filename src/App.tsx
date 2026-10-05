@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   agenda, apmCliReleaseUrl, apmCliVersion, docsUrl, installation, lessons, lifecycleSteps, modeRule, modelGuidance,
-  notNeeded, observationNote, prerequisites, sources, squadVersion, troubleshooting,
+  notNeeded, observationNote, prerequisites, routingNote, routingOptions, sources, squadVersion, troubleshooting,
 } from './content'
 import type { Lesson, LessonStep, Prompt, SquadKey } from './content'
 import {
@@ -123,6 +123,18 @@ function App() {
     }
   }
 
+  function routingPicker(context: string) {
+    const current = routingOptions.find(option => option.value === settings.routing) ?? routingOptions[0]
+    return <div className="routing-picker">
+      <span className="routing-label">Model routing</span>
+      <div className="segmented" role="radiogroup" aria-label={`Model routing (${context})`}>
+        {routingOptions.map(option => <button type="button" role="radio" key={option.value} aria-checked={settings.routing === option.value}
+          title={option.detail} onClick={() => updateSetting('routing', option.value)}>{option.label}</button>)}
+      </div>
+      <span className="routing-summary"><code>routing="{current.value}"</code> — {current.summary}</span>
+    </div>
+  }
+
   function promptBlock(prompt: Prompt) {
     const blockers = promptBlockers(prompt, settings, saved.checked)
     let text: string
@@ -143,6 +155,7 @@ function App() {
       </div>
       <h4>{prompt.title}</h4>
       {agent && <p className="agent-hint">{agent.instruction}</p>}
+      {prompt.kind === 'work' && routingPicker(prompt.title)}
       {shell && prompt.bash && <p className="shell-label">Windows · PowerShell</p>}
       <pre tabIndex={0}><code>{text}</code></pre>
       {shell && prompt.bash && <>
@@ -244,10 +257,20 @@ function App() {
         </section>
         {starterPanel('Step 1 · Get the starter solution')}
       </>}
-      {lesson.id === 'orient' && <div className="rule-grid">
-        <aside className="rule-box"><strong>{modeRule.title}</strong><p>{modeRule.body}</p></aside>
-        <aside className="rule-box"><strong>{modelGuidance.title}</strong><p>{modelGuidance.body}</p></aside>
-      </div>}
+      {lesson.id === 'orient' && <>
+        <div className="rule-grid">
+          <aside className="rule-box"><strong>{modeRule.title}</strong><p>{modeRule.body}</p></aside>
+          <aside className="rule-box"><strong>{modelGuidance.title}</strong><p>{modelGuidance.body}</p></aside>
+        </div>
+        <section className="panel routing-panel" aria-label="Model routing">
+          <span className="eyebrow">Your choice · added to every work request</span>
+          <h2>Model routing: how each role's model is chosen</h2>
+          <div className="routing-options">{routingOptions.map(option => <button type="button" key={option.value} className="routing-option" aria-pressed={settings.routing === option.value} onClick={() => updateSetting('routing', option.value)}>
+            <code>routing="{option.value}"</code><strong>{option.summary}</strong><span>{option.detail}</span>
+          </button>)}</div>
+          <p className="small">{routingNote}</p>
+        </section>
+      </>}
       <section className="inputs"><h2>Have these ready</h2><ul>{lesson.inputs.map(input => <li key={input}>{input}</li>)}</ul></section>
       {lesson.setup && <section aria-label="Setup">
         <div className="section-caption">Setup first · confirm · then the work request</div>
@@ -263,17 +286,18 @@ function App() {
           </label>
         </section>)}
       </section>}
-      {lesson.answers && <section className="answers panel" aria-label="Business answers">
-        <span className="eyebrow">You play Northwind</span>
-        <h2>Business answers you can give</h2>
-        <table><tbody>{lesson.answers.map(item => <tr key={item.question}><td>{item.question}</td><td>{item.answer}</td></tr>)}</tbody></table>
-      </section>}
       {lesson.id === 'ado' && mcpPanel()}
       {lesson.flow?.map(item => <section className="flow-step" key={item.heading}>
         <h2>{item.heading}</h2>
         <p>{item.hint}</p>
         {promptBlock(item.prompt)}
       </section>)}
+      {lesson.answers && <section className="answers panel" aria-label="Business answers">
+        <span className="eyebrow">You play Northwind · only when the squad asks</span>
+        <h2>Business answers you can give</h2>
+        <p className="small">Do not send these up front. Use them to answer the intake validator's questions consistently. Anything it does not ask about should appear in the documents as ASSUMPTION or OPEN.</p>
+        <table><tbody>{lesson.answers.map(item => <tr key={item.question}><td>{item.question}</td><td>{item.answer}</td></tr>)}</tbody></table>
+      </section>}
       {lesson.behaviors && <section className="behavior-panel" aria-label="What to observe">
         <span className="eyebrow">Observe · not part of the request</span>
         <h2>What the squad should do on its own</h2>
@@ -369,7 +393,7 @@ function App() {
         <li>One button for a ready-to-use folder; no manual repository setup.</li>
         <li>Markdown business case: no PDF readers, Python or OCR.</li>
         <li>Identifiers on every fact, so invented or missing requirements are easy to spot.</li>
-        <li>Intake questions answered before any document is drafted.</li>
+        <li>An intake validator checks the case for gaps before any document is drafted.</li>
         <li>Engineering standards that define structure, style and file locations.</li>
         <li>Azure DevOps optional, with the official remote MCP server.</li>
         <li>Review keys and terminal checks instead of trusting summaries.</li>
@@ -457,7 +481,8 @@ function App() {
             }}>{clientLabels[value]}</button>)}</div>
           <div><button type="button" aria-pressed={focusMode} onClick={() => setFocusMode(!focusMode)}>{focusMode ? 'Show navigation' : 'Focus view'}</button><button type="button" onClick={() => window.print()}>Print guide</button></div>
         </div>
-        <p className="client-note">Your client: <strong>{clientLabels[settings.experience]}</strong>. Every request below is formatted for it{vscode ? ' as a /squad or /squad-federation command.' : ', to paste into the selected agent\'s chat.'}</p>
+        <p className="client-note">Your client: <strong>{clientLabels[settings.experience]}</strong>. Every request below is formatted for it{vscode ? ' as a /squad or /squad-federation command.' : ', to paste into the selected agent\'s chat.'} Work requests also carry <code>routing="{settings.routing}"</code> — change it below or in <a href="#orient">Part 01</a>.</p>
+        {routingPicker('page')}
         {storageError && <div className="notice warning" role="alert">{storageError}<button type="button" onClick={() => setResetOpen(true)}>Reset options</button></div>}
         <div className="status" role="status" aria-live="polite">{status}</div>
         {page === 'overview' ? overview : active ? renderLesson(active) : page === 'resources' ? resources

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import {
-  agenda, autopilotMode, installation, lessons, lifecycleSteps, readinessQuestion, readyScript, sources, squadVersion, suggestedSquads, troubleshooting,
+  agenda, autopilotMode, installation, lessons, lifecycleSteps, readinessQuestion, readyScript, routingOptions, sources, squadVersion, suggestedSquads, troubleshooting,
 } from '../src/content.ts'
 import {
   agentSelection, checkLabel, coreCheckIds, decodeState, defaults, fillNames, missingSetup, optionalCheckIds, progress, promptBlockers,
@@ -73,12 +73,43 @@ test('only work requests carry autopilot, for every client', () => {
   }
 })
 
-test('App and CLI put the mode and squad target on the first line', () => {
+test('App and CLI put the mode, routing and squad target on the first line', () => {
   const migration = lessons.find(lesson => lesson.id === 'migration').flow[0].prompt
   const text = renderPrompt(migration, defaults)
-  assert.ok(text.startsWith(`${autopilotMode} squad="azure-migration"\n\nPlan the move`))
+  assert.ok(text.startsWith(`${autopilotMode} routing="off" squad="azure-migration"\n\nPlan the move`), text.slice(0, 80))
   const promote = lifecycleSteps.find(step => step.id === 'promote').request
   assert.ok(renderPrompt(promote, { ...defaults, experience: 'app' }).startsWith('promote\n\n'))
+})
+
+test('every autopilot request carries the chosen routing, and nothing else does', () => {
+  assert.deepEqual(routingOptions.map(option => option.value), ['off', 'ranked', 'manual'])
+  for (const option of routingOptions) assert.ok(option.summary && option.detail, option.value)
+  assert.equal(defaults.routing, 'off')
+  for (const routing of ['off', 'ranked', 'manual']) {
+    for (const experience of ['app', 'cli', 'vscode']) {
+      const settings = { ...defaults, experience, routing, organization: 'contoso', project: 'Northwind', participant: 'AB-', documentTarget: 'wiki:/Northwind' }
+      for (const prompt of allPrompts) {
+        const text = renderPrompt(prompt, settings)
+        const header = experience === 'vscode' ? text.slice(0, text.indexOf(' request=')) : text.split('\n')[0]
+        if (prompt.kind === 'work') assert.ok(header.includes(`${autopilotMode} routing="${routing}"`), `${experience} ${routing} ${prompt.title}: ${header}`)
+        else assert.doesNotMatch(text, /routing="/, `${experience} ${prompt.title}`)
+      }
+    }
+  }
+  const saved = decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', routing: 'manual' } }))
+  assert.equal(saved.settings.routing, 'manual')
+  assert.equal(decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli' } })).settings.routing, 'off')
+  assert.throws(() => decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', routing: 'fast' } })), /routing/)
+})
+
+test('the product lesson leaves intake to the squad', () => {
+  const product = lessons.find(lesson => lesson.id === 'product')
+  assert.equal(product.flow.length, 1)
+  assert.equal(product.flow[0].prompt.kind, 'work')
+  assert.ok(!allPrompts.some(prompt => prompt.kind === 'question' && prompt.entry === 'squad'))
+  assert.match(product.flow[0].hint, /intake validator/)
+  assert.doesNotMatch(product.flow[0].prompt.text, /answers I gave/)
+  assert.ok(product.answers.length >= 5)
 })
 
 test('VS Code commands use the documented prompt inputs', () => {
@@ -90,8 +121,8 @@ test('VS Code commands use the documented prompt inputs', () => {
   const promote = renderPrompt(lifecycleSteps[1].request, vscode)
   assert.ok(promote.startsWith('/squad-federation promote request="We want'), promote)
   const modernize = renderPrompt(lessons.find(lesson => lesson.id === 'modernize').flow[0].prompt, vscode)
-  assert.ok(modernize.startsWith('/squad-federation mode="autopilot" squad="dotnet-modernization" request="Modernize'), modernize)
-  const work = renderPrompt(lessons.find(lesson => lesson.id === 'product').flow[2].prompt, vscode)
+  assert.ok(modernize.startsWith('/squad-federation mode="autopilot" routing="off" squad="dotnet-modernization" request="Modernize'), modernize)
+  const work = renderPrompt(lessons.find(lesson => lesson.id === 'product').flow[0].prompt, vscode)
   const request = JSON.parse(work.slice(work.indexOf('request=') + 'request='.length))
   assert.match(request, /^Using knowledge-docs/)
   assert.equal(renderPrompt(readinessQuestion, vscode), readinessQuestion.text)
@@ -208,7 +239,7 @@ test('the starter is clean, normalized and versioned', () => {
   for (const script of ['tools/ready.ps1', 'tools/ready.sh']) {
     assert.match(starterText(script), /refs\/tags\/starter/, `${script} repairs a missing tag`)
     assert.match(starterText(script), /commit\.gpgsign=false/, `${script} never prompts for signing`)
-    assert.match(starterText(script), /WRONG VERSION[\s\S]*0\.17/, `${script} checks the plugin version`)
+    assert.match(starterText(script), /WRONG VERSION[\s\S]*0\.18/, `${script} checks the plugin version`)
   }
   assert.ok(guideText.includes('git diff starter'))
 })
@@ -236,8 +267,8 @@ test('the starter zip is a valid archive with matching checksums', () => {
 
 test('sources are https and versions are consistent', () => {
   for (const source of sources) assert.match(source.url, /^https:\/\//)
-  assert.equal(squadVersion, '0.17.0')
-  assert.match(installation.apm.text, /hve-squad#v0\.17\.0/)
+  assert.equal(squadVersion, '0.18.0')
+  assert.match(installation.apm.text, /hve-squad#v0\.18\.0/)
   assert.match(installation.cli.text, /hve-squad-hve-core@hve-squad-plugin/)
 })
 

@@ -32,8 +32,8 @@ if command -v copilot >/dev/null 2>&1; then
   if [ $squad -eq 1 ] && [ $core -eq 1 ]; then
     version="$(echo "$plugins" | sed -n 's/.*hve-squad@hve-squad-plugin *(v\{0,1\}\([0-9][0-9.]*\)).*/\1/p' | head -n 1)"
     case "$version" in
-      ''|0.17.*) row "HVE Squad plugin pair" "CLI client only" "OK" "hve-squad v$version + hve-squad-hve-core installed" ;;
-      *) row "HVE Squad plugin pair" "CLI client only" "WRONG VERSION" "hve-squad v$version - the guide is built for 0.17.0 (Part 00, step 3)" ;;
+      ''|0.18.*) row "HVE Squad plugin pair" "CLI client only" "OK" "hve-squad v$version + hve-squad-hve-core installed" ;;
+      *) row "HVE Squad plugin pair" "CLI client only" "WRONG VERSION" "hve-squad v$version - the guide is built for 0.18.0 (Part 00, step 3)" ;;
     esac
   elif [ $squad -eq 1 ] || [ $core -eq 1 ]; then row "HVE Squad plugin pair" "CLI client only" "INCOMPLETE" "Install both entries (guide, Part 00)"
   else row "HVE Squad plugin pair" "CLI client only" "MISSING" "See guide, Part 00, step 3"; fi

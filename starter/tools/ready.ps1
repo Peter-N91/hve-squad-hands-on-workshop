@@ -43,8 +43,8 @@ if ($copilot) {
     $hasSquad = $plugins -match 'hve-squad@hve-squad-plugin'
     $hasCore = $plugins -match 'hve-squad-hve-core@hve-squad-plugin'
     if ($hasSquad -and $hasCore) {
-        if ($squadMatch.Success -and $squadMatch.Groups[1].Value -notlike '0.17.*') {
-            Add-Result 'HVE Squad plugin pair' 'CLI client only' 'WRONG VERSION' "hve-squad v$($squadMatch.Groups[1].Value) - the guide is built for 0.17.0. Update: see guide, Part 00, step 3"
+        if ($squadMatch.Success -and $squadMatch.Groups[1].Value -notlike '0.18.*') {
+            Add-Result 'HVE Squad plugin pair' 'CLI client only' 'WRONG VERSION' "hve-squad v$($squadMatch.Groups[1].Value) - the guide is built for 0.18.0. Update: see guide, Part 00, step 3"
         } else {
             Add-Result 'HVE Squad plugin pair' 'CLI client only' 'OK' "hve-squad v$($squadMatch.Groups[1].Value) + hve-squad-hve-core installed"
         }

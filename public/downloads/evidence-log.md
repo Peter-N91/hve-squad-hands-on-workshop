@@ -8,7 +8,8 @@ Keep this file in your northwind-workshop folder. Record what happened, not what
 | Date | |
 | Copilot client and version | |
 | Model (not Auto) | |
-| HVE Squad version | 0.17.0 |
+| Model routing (off / ranked / manual) | |
+| HVE Squad version | 0.18.0 |
 
 ## 02 · Product
 
@@ -17,7 +18,8 @@ Keep this file in your northwind-workshop folder. Record what happened, not what
 | BR- and NFR- identifiers in the traceability table (of 20) | |
 | Invented statements found in 3 checked stories | |
 | …of which labelled ASSUMPTION | |
-| Did intake flag BR-04 vs CS-10 on its own? (yes/no) | |
+| Did the intake validator flag BR-04 vs CS-10 on its own? (yes/no) | |
+| Questions the intake asked me | |
 | Corrections I asked for | |
 
 Notes on the team proposal, council and decisions:

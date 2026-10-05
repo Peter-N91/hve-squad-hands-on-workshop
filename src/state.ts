@@ -1,5 +1,5 @@
-import { autopilotMode, lessons, lifecycleSteps, suggestedSquads } from './content.ts'
-import type { Prompt, SetupId, SquadKey } from './content.ts'
+import { autopilotMode, lessons, lifecycleSteps, routingOptions, suggestedSquads } from './content.ts'
+import type { Prompt, Routing, SetupId, SquadKey } from './content.ts'
 
 export const clients = ['app', 'cli', 'vscode'] as const
 export type Client = typeof clients[number]
@@ -10,11 +10,13 @@ export type PublicationField = typeof publicationFields[number]
 export const requiredPublicationFields: PublicationField[] = ['organization', 'project', 'participant', 'documentTarget']
 export const squadKeys: SquadKey[] = ['productSquad', 'migrationSquad', 'modernizationSquad']
 
-export type Settings = { experience: Client } & Record<PublicationField, string> & Record<SquadKey, string>
+export type Settings = { experience: Client; routing: Routing } & Record<PublicationField, string> & Record<SquadKey, string>
+export const routings = routingOptions.map(option => option.value)
 export type SavedState = { schema: 1; checked: string[]; settings: Settings }
 
 export const defaults: Settings = {
   experience: 'cli',
+  routing: 'off',
   organization: '', project: '', participant: '', documentTarget: '', process: '', area: '', iteration: '',
   ...suggestedSquads,
 }
@@ -80,6 +82,10 @@ export function decodeState(raw: string | null): SavedState {
   const input = data.settings as Record<string, unknown>
   if (!clients.includes(input.experience as Client)) throw new Error('Saved progress names an unknown Copilot client.')
   const settings: Settings = { ...defaults, experience: input.experience as Client }
+  if (input.routing !== undefined) {
+    if (!routings.includes(input.routing as Routing)) throw new Error('Saved progress names an unknown model routing.')
+    settings.routing = input.routing as Routing
+  }
   for (const key of [...publicationFields, ...squadKeys]) {
     if (input[key] === undefined) continue
     if (typeof input[key] !== 'string') throw new Error(`Saved setting ${key} is damaged.`)
@@ -168,18 +174,23 @@ export function renderPrompt(prompt: Prompt, settings: Settings = defaults): str
     squadOption = ` squad=${JSON.stringify(settings[prompt.squadTarget].trim())}`
   }
   const entry = prompt.entry ?? 'squad'
+  const workOptions = `${autopilotMode} ${routingOption(settings)}${squadOption}`
 
   if (settings.experience !== 'vscode') {
-    return prompt.kind === 'work' ? `${autopilotMode}${squadOption}\n\n${text}` : text
+    return prompt.kind === 'work' ? `${workOptions}\n\n${text}` : text
   }
   if (prompt.kind === 'setup' && entry === 'squad-federation' && prompt.lifecycle) {
     const firstBreak = text.indexOf('\n')
     const body = firstBreak >= 0 && text.slice(0, firstBreak).trim() === prompt.lifecycle ? text.slice(firstBreak + 1).trimStart() : text
     return `/${entry} ${prompt.lifecycle} request=${JSON.stringify(body)}`
   }
-  const mode = prompt.kind === 'work' ? ` ${autopilotMode}` : ''
+  const options = prompt.kind === 'work' ? ` ${workOptions}` : ''
   // JSON quoting keeps quotes, backslashes and line breaks inside a single request argument.
-  return `/${entry}${mode}${squadOption} request=${JSON.stringify(text)}`
+  return `/${entry}${options} request=${JSON.stringify(text)}`
+}
+
+export function routingOption(settings: Pick<Settings, 'routing'>) {
+  return `routing=${JSON.stringify(settings.routing)}`
 }
 
 export function agentSelection(prompt: Pick<Prompt, 'entry' | 'kind'>, settings: Settings) {
