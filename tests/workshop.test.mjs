@@ -2,12 +2,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import {
-  agenda, autopilotMode, installation, lessons, lifecycleSteps, prerequisites, readinessQuestion, readyScript, releaseTag, routingOptions, scopeOptions, sources,
-  squadReleaseUrl, squadVersion, suggestedSquads, trackIds, tracks, troubleshooting,
+  agenda, autopilotMode, diagramsRequirement, diagramsVersion, installation, lessons, lifecycleSteps, prerequisites, readinessQuestion, readyScript, releaseName,
+  releaseTag, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion, suggestedSquads, trackIds, trackModeOptions, tracks, troubleshooting,
 } from '../src/content.ts'
 import { hveSquadRelease } from '../src/hve-squad-release.ts'
 import {
-  agentSelection, checkIds, checkLabel, coreCheckIds, decodeState, defaults, fillNames, missingSetup, optionalCheckIds, progress, promptBlockers,
+  addTrack, agentSelection, checkIds, checkLabel, coreCheckIds, decodeState, defaults, fillNames, missingSetup, normalizeTracks, optionalCheckIds, pickTrack,
+  progress, promptBlockers, setTrackMode,
   renderPrompt, resolveConditions, setupCheckId, squadNameError, storageKey, toggleCheck, toggleTrack, visibleAgenda, visibleAnswers, visibleLessons,
   visiblePrerequisites,
 } from '../src/state.ts'
@@ -33,7 +34,7 @@ const publication = { organization: 'contoso', project: 'Northwind', participant
 
 // Every non-empty set of tracks, with both product scopes.
 const trackSets = Array.from({ length: 2 ** trackIds.length - 1 }, (_, mask) => trackIds.filter((_, bit) => (mask + 1) & (1 << bit)))
-const combinations = trackSets.flatMap(set => scopeOptions.map(option => ({ ...defaults, ...publication, tracks: set, scope: option.value })))
+const combinations = trackSets.flatMap(set => scopeOptions.map(option => ({ ...defaults, ...publication, trackMode: set.length === trackIds.length ? 'all' : set.length === 1 ? 'one' : 'selected', tracks: set, scope: option.value })))
 const lessonStrings = item => [
   item.goal, item.concept, item.recovery, ...item.inputs, ...item.evidence, ...item.checks, ...(item.behaviors ?? []),
   ...(item.reviewKey ? [item.reviewKey.intro, ...item.reviewKey.items.map(entry => entry.detail)] : []),
@@ -98,7 +99,7 @@ test('setup: product → promote, then every track team needs only the promotion
 })
 
 test('prompt metadata is consistent', () => {
-  const placeholders = new Set([...Object.keys(suggestedSquads), 'trackList', 'areaList', 'teamList', 'releaseTags', 'releaseList'])
+  const placeholders = new Set([...Object.keys(suggestedSquads), 'trackList', 'areaList', 'teamList', 'releaseNames', 'releaseTags', 'releaseList'])
   for (const prompt of allPrompts) {
     assert.ok(['setup', 'work', 'question', 'plain', 'shell'].includes(prompt.kind), prompt.title)
     if (prompt.kind === 'setup') {
@@ -118,10 +119,10 @@ test('every request and lesson text renders cleanly for every choice of tracks a
     for (const prompt of allPrompts) {
       if (prompt.kind === 'shell') continue
       const text = renderPrompt(prompt, settings)
-      assert.doesNotMatch(text, /\{(productSquad|migrationSquad|modernizationSquad|powerPlatformSquad|trackList|areaList|teamList|releaseTags|releaseList)\}|\[\[|\]\]/, `${settings.tracks}/${settings.scope} · ${prompt.title}`)
+      assert.doesNotMatch(text, /\{(productSquad|migrationSquad|modernizationSquad|powerPlatformSquad|trackList|areaList|teamList|releaseNames|releaseTags|releaseList)\}|\[\[|\]\]/, `${settings.tracks}/${settings.scope} · ${prompt.title}`)
     }
     for (const item of visibleLessons(settings)) {
-      for (const text of lessonStrings(item)) assert.doesNotMatch(fillNames(text, settings), /\[\[|\]\]|\{(trackList|areaList|teamList|releaseTags|releaseList)\}/, `${item.id}: ${text.slice(0, 40)}`)
+      for (const text of lessonStrings(item)) assert.doesNotMatch(fillNames(text, settings), /\[\[|\]\]|\{(trackList|areaList|teamList|releaseNames|releaseTags|releaseList)\}/, `${item.id}: ${text.slice(0, 40)}`)
     }
   }
   assert.throws(() => resolveConditions('[[cloud:x]]', defaults), /Unknown text condition/)
@@ -176,24 +177,31 @@ test('the product lesson leaves intake to the squad', () => {
   assert.ok(product.answers.length >= 7)
 })
 
-test('the product request asks for one tagged release per chosen track, in the chosen scope', () => {
+test('the product request asks for numbered, tagged releases for each chosen track, in the chosen scope', () => {
   const product = workPrompt('product')
   const all = renderPrompt(product, defaults)
-  assert.match(all, /tracks, each run by its own team that builds only from its own release: Azure, \.NET and Power Platform\./)
+  assert.match(all, /tracks, each run by its own team that builds only from its own releases: Azure, \.NET and Power Platform\./)
   assert.match(all, /Cover the whole business case/)
-  for (const track of tracks) assert.ok(all.includes(`Git tag ${releaseTag(track)}`), track.id)
+  for (const track of tracks) {
+    assert.ok(all.includes(`track tag track-${track.slug}; release tags ${releaseName(track, 1)}, ${releaseName(track, 2)} and so on`), track.id)
+    assert.ok(all.includes(`Git tags ${releaseTag(track, '<n>')}`), track.id)
+  }
+  assert.equal(releaseTag(tracks[0], 2), 'product/azure-r2')
   assert.match(all, /Tag every item with the track that delivers it \(ES-30\)/)
-  assert.match(all, /commit the product documents and create the Git tag of each release/)
+  assert.match(all, /A track can have several releases, numbered r1, r2… in delivery order/)
+  assert.match(all, /Every item planned in a release carries that release's tag as well as its track tag/)
+  assert.match(all, /Azure DevOps, GitHub or Jira \(ES-39\)/)
+  assert.match(all, /commit the product documents and create the Git tag of each approved release/)
 
   const focused = renderPrompt(product, { ...defaults, tracks: ['powerPlatform'], scope: 'focused' })
-  assert.match(focused, /these tracks, each run by its own team that builds only from its own release: Power Platform\./)
+  assert.match(focused, /these tracks, each run by its own team that builds only from its own releases: Power Platform\./)
   assert.match(focused, /Cover only the business areas of those tracks — BA-03 \(Delivery claims and credit notes\) — and list the other areas as out of scope/)
-  assert.match(focused, /product\/power-platform-r1/)
-  assert.doesNotMatch(focused, /product\/azure-r1|product\/dotnet-r1|whole business case/)
+  assert.match(focused, /product\/power-platform-r<n>/)
+  assert.doesNotMatch(focused, /product\/azure-r|product\/dotnet-r|whole business case/)
 
   const init = renderPrompt(lifecycleSteps[0].request, { ...defaults, tracks: ['azure', 'dotnet'], scope: 'focused' })
   assert.match(init, /in the business areas BA-01 \(Platform and data-centre exit\) and BA-02 \(Ordering and customer self-service\)/)
-  assert.match(init, /one release per delivery track \(Azure and \.NET\)/)
+  assert.match(init, /tagged releases for each delivery track \(Azure and \.NET\)/)
 })
 
 test('tracks are independent: hidden parts, answers, prerequisites and progress follow the choice', () => {
@@ -208,6 +216,20 @@ test('tracks are independent: hidden parts, answers, prerequisites and progress 
   assert.ok(!ids.core.some(id => id.startsWith('migration-') || id.startsWith('modernize-') || id.includes('migration-team')))
   assert.equal(progress(ids.core, powerOnly).percent, 100)
   assert.ok(progress(ids.core, defaults).percent < 100)
+
+  assert.deepEqual(trackModeOptions.map(option => option.value), ['all', 'one', 'selected'])
+  assert.deepEqual(normalizeTracks('all', ['dotnet']), { trackMode: 'all', tracks: trackIds })
+  assert.deepEqual(normalizeTracks('one', ['powerPlatform', 'azure']), { trackMode: 'one', tracks: ['azure'] })
+  assert.deepEqual(normalizeTracks('selected', []), { trackMode: 'selected', tracks: ['azure'] })
+  assert.deepEqual(setTrackMode(defaults, 'one'), { trackMode: 'one', tracks: ['azure'] })
+  assert.deepEqual(pickTrack({ trackMode: 'one', tracks: ['azure'] }, 'powerPlatform'), { trackMode: 'one', tracks: ['powerPlatform'] })
+  assert.deepEqual(pickTrack({ trackMode: 'selected', tracks: ['azure'] }, 'dotnet'), { trackMode: 'selected', tracks: ['azure', 'dotnet'] })
+  assert.deepEqual(pickTrack({ trackMode: 'selected', tracks: ['azure'] }, 'azure'), { trackMode: 'selected', tracks: ['azure'] })
+  assert.deepEqual(pickTrack(defaults, 'azure'), { trackMode: 'all', tracks: trackIds })
+  assert.deepEqual(addTrack({ trackMode: 'one', tracks: ['dotnet'] }, 'azure'), { trackMode: 'selected', tracks: ['azure', 'dotnet'] })
+  assert.deepEqual(addTrack({ trackMode: 'selected', tracks: ['azure', 'dotnet'] }, 'powerPlatform'), { trackMode: 'all', tracks: trackIds })
+  assert.ok(lesson('product').concept.includes('all tracks, one track or selected tracks'))
+  assert.ok(!lesson('orient').checks.some(check => /chose my delivery tracks/.test(check)))
 
   assert.deepEqual(toggleTrack(['azure', 'dotnet'], 'azure'), ['dotnet'])
   assert.deepEqual(toggleTrack(['dotnet'], 'dotnet'), ['dotnet'])
@@ -250,7 +272,7 @@ test('VS Code commands use the documented prompt inputs', () => {
   const work = renderPrompt(workPrompt('product'), vscode)
   const request = JSON.parse(work.slice(work.indexOf('request=') + 'request='.length))
   assert.match(request, /^Using knowledge-docs/)
-  assert.match(request, /\n- Azure: items tagged track-azure, described in docs\/product\/releases\/azure-r1\.md, Git tag product\/azure-r1/)
+  assert.match(request, /\n- Azure: track tag track-azure; release tags azure-r1, azure-r2 and so on; release files docs\/product\/releases\/azure-r<n>\.md; Git tags product\/azure-r<n>/)
   assert.equal(renderPrompt(readinessQuestion, vscode), readinessQuestion.text)
 })
 
@@ -273,7 +295,7 @@ test('Azure DevOps publication needs the Session setup details and includes them
   const text = renderPrompt(publish, { ...defaults, ...publication, process: '' })
   assert.match(text, /Azure DevOps organization: "contoso"/)
   assert.match(text, /Participant prefix: "AB-"/)
-  assert.match(text, /its track tag \(ES-30\)/)
+  assert.match(text, /its track tag \(ES-30\) and, if it is planned in a release, its release tag such as azure-r1 \(ES-31, ES-39\)/)
   assert.doesNotMatch(text, /Process:/)
 })
 
@@ -283,7 +305,7 @@ test('copy stays blocked until earlier setup is confirmed', () => {
   assert.deepEqual(promptBlockers(modernize, defaults, allChecked), [])
   const promote = lifecycleSteps.find(step => step.id === 'promote').request
   const setupOnly = ['setup:product-team']
-  assert.deepEqual(promptBlockers(promote, defaults, setupOnly), ['Part 02 checkpoint: "I approved one release per chosen track, and git tag -l "product/*" lists their tags."'])
+  assert.deepEqual(promptBlockers(promote, defaults, setupOnly), ['Part 02 checkpoint: "I approved the releases of each chosen track, and git tag -l "product/*" lists one tag per release."'])
   assert.deepEqual(promptBlockers(promote, defaults, [...setupOnly, 'product-3']), [])
   for (const prompt of allPrompts) for (const id of prompt.requiresChecks ?? []) assert.ok(checkLabel(id).text, id)
   assert.throws(() => checkLabel('product-99'), /Unknown checkpoint/)
@@ -302,10 +324,14 @@ test('saved state is validated, deduplicated, filtered and backward compatible',
   assert.equal(state.settings.project, 'X')
   assert.equal(state.settings.migrationSquad, 'azure-migration')
   assert.deepEqual(state.settings.tracks, trackIds)
+  assert.equal(state.settings.trackMode, 'all')
   assert.equal(state.settings.scope, 'full')
   const chosen = decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', tracks: ['powerPlatform', 'azure'], scope: 'focused' } }))
   assert.deepEqual(chosen.settings.tracks, ['azure', 'powerPlatform'])
+  assert.equal(chosen.settings.trackMode, 'selected')
   assert.equal(chosen.settings.scope, 'focused')
+  const one = decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', trackMode: 'one', tracks: ['dotnet', 'azure'] } }))
+  assert.deepEqual(one.settings, { ...one.settings, trackMode: 'one', tracks: ['azure'] })
   for (const raw of [
     'not json', '{}', 'null', '{"schema":2}',
     JSON.stringify({ schema: 1, checked: [1], settings: defaults }),
@@ -313,6 +339,7 @@ test('saved state is validated, deduplicated, filtered and backward compatible',
     JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', tracks: [] } }),
     JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', tracks: ['sap'] } }),
     JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', scope: 'some' } }),
+    JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', trackMode: 'two' } }),
   ]) {
     assert.throws(() => decodeState(raw), raw)
   }
@@ -427,6 +454,32 @@ test('sources are https and the prerequisites are tied to their part or track', 
   for (const source of sources) assert.match(source.url, /^https:\/\//)
   assert.equal(prerequisites.find(item => item.what === '.NET 10 SDK').track, 'dotnet')
   assert.equal(prerequisites.find(item => item.what === 'Azure CLI with Bicep').track, 'azure')
+})
+
+test('the Azure track draws its diagrams with the Python diagrams library and the latest Azure icons', () => {
+  assert.equal(diagramsRequirement, `diagrams>=${diagramsVersion}`)
+  assert.ok(Number(diagramsVersion.split('.')[1]) >= 25, 'diagrams 0.25 moved to Azure icons V18')
+  const plan = renderPrompt(workPrompt('migration'), defaults)
+  assert.ok(plan.includes('python-diagrams skill'), 'names the HVE Squad skill')
+  assert.ok(plan.includes(`(${diagramsRequirement}, which carries the latest Azure icons)`))
+  assert.ok(plan.includes(`uv run --with "${diagramsRequirement}"`))
+  assert.match(plan, /only its diagrams\.azure nodes for Azure services/)
+  assert.match(plan, /Do not replace them with Mermaid/)
+  assert.match(plan, /\(ES-38\)/)
+  for (const what of ['uv and the Python diagrams library', 'Graphviz']) {
+    const row = prerequisites.find(item => item.what.startsWith(what))
+    assert.equal(row?.track, 'azure', what)
+    assert.match(row.part, /required/, what)
+  }
+  assert.ok(prerequisites.find(item => item.what === 'Graphviz').check === 'dot -V')
+  assert.ok(!visiblePrerequisites({ tracks: ['dotnet'] }).some(item => item.what === 'Graphviz'))
+  assert.match(knowledge, /\| ES-38 \|[^\n]*Python `diagrams` library, version \*\*0\.25\.1 or later\*\*/)
+  assert.match(starterText('tools/ready.ps1'), /Get-FirstLine 'uv'[\s\S]*Get-FirstLine 'dot' @\('-V'\)/)
+  assert.match(starterText('tools/ready.sh'), /command -v uv[\s\S]*command -v dot/)
+  const render = lesson('migration').steps.find(step => step.title === 'Render the diagrams yourself').prompt
+  assert.ok(render.text.includes(diagramsRequirement) && render.bash.includes(diagramsRequirement))
+  assert.ok(troubleshooting.some(([title]) => title === 'The architecture diagrams do not render'))
+  assert.doesNotMatch(lesson('migration').recovery, /Mermaid diagrams are fine/)
 })
 
 test('the stylesheet uses the HVE Squad identity', async () => {

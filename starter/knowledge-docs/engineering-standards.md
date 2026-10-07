@@ -21,8 +21,8 @@ and low-code teams. Identifiers (for example `ES-07`) let reviews cite them.
 
 | ID | Content | Location |
 |---|---|---|
-| ES-07 | Product documents (business requirements, product requirements, experiment design, backlog, traceability) and one release file per delivery track | `docs/product/`, releases in `docs/product/releases/` |
-| ES-08 | Architecture (high-level and low-level design, decision records, diagrams) | `docs/architecture/` |
+| ES-07 | Product documents (business requirements, product requirements, experiment design, backlog, traceability) and one file per release | `docs/product/`, releases in `docs/product/releases/` |
+| ES-08 | Architecture (high-level and low-level design, decision records, diagram scripts and their PNG and SVG output — see ES-38) | `docs/architecture/` |
 | ES-09 | Migration plan, cost estimate, runbooks | `docs/migration/` |
 | ES-10 | Infrastructure as code | `infra/` |
 | ES-11 | Modernization notes (what changed, why, how it was tested) | `docs/modernization/` |
@@ -54,6 +54,7 @@ and low-code teams. Identifiers (for example `ES-07`) let reviews cite them.
 | ES-25 | Data services (database, storage, Key Vault) are reached through private endpoints. Applications use managed identities, never passwords. |
 | ES-26 | Diagnostics from every resource go to one Log Analytics workspace per environment; applications use Application Insights. |
 | ES-27 | Nothing is deployed from this workshop. IaC must be validated locally (for example with `az bicep build`) and reviewed, not applied. |
+| ES-38 | Architecture diagrams (high-level and low-level design) are drawn with the Python `diagrams` library, version **0.25.1 or later** so they carry the latest official Azure icons, rendered with Graphviz. Each diagram is a generator script committed in `docs/architecture/` next to its PNG and SVG output, and every Azure service is drawn with its `diagrams.azure` node, not a generic shape. Mermaid is not a substitute. |
 
 ## 5. Azure DevOps (optional)
 
@@ -67,7 +68,8 @@ and low-code teams. Identifiers (for example `ES-07`) let reviews cite them.
 | ID | Standard |
 |---|---|
 | ES-30 | Every epic, feature and story carries exactly **one** track tag naming the team that delivers it: `track-azure` (BA-01), `track-dotnet` (BA-02) or `track-power-platform` (BA-03). A story that needs two tracks is split into one story per track. A new delivery track gets a new tag of the same form. |
-| ES-31 | Each track's first release is described in `docs/product/releases/<track>-r1.md` (for example `azure-r1.md`): its stories, the `BR-` and `NFR-` identifiers it covers, what it leaves out, and its dependencies on other tracks as **OPEN:** items. A release never waits for another track. Once the product owner approves a release, the commit that holds it is tagged in Git as `product/<track>-r1` (for example `product/azure-r1`). |
+| ES-31 | A track can have several releases, numbered in delivery order: `<track>-r1`, `<track>-r2` and so on (for example `azure-r1`, `azure-r2`). Every item planned in a release carries that release name as a **release tag**, in addition to its track tag; an item belongs to at most one release, and items not yet planned carry only the track tag. Each release is described in `docs/product/releases/<track>-r<n>.md`: its stories, the `BR-` and `NFR-` identifiers it covers, what it leaves out, and its dependencies on other tracks as **OPEN:** items. A release never waits for another track. Once the product owner approves a release, the commit that holds it is tagged in Git as `product/<track>-r<n>` (for example `product/azure-r1`). |
+| ES-39 | When the backlog is published, the track and release tags travel with every item, so each release stays identifiable in the tool: **Azure DevOps** — work-item tags (`track-azure`, `azure-r1`); **GitHub** — issue labels, plus one milestone per release named after it; **Jira** — labels, plus one fix version per release named after it. Titles, descriptions and source identifiers follow ES-28 and ES-29 in every tool. |
 
 ## 7. Power Platform
 

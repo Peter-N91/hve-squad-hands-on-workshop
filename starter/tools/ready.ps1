@@ -86,6 +86,16 @@ if ($az) {
     Add-Result 'Azure CLI' 'Azure track' 'OPTIONAL' 'Install: winget install --id Microsoft.AzureCLI -e'
 }
 
+# uv and Graphviz - Azure track (Part 05): the HVE Squad python-diagrams skill renders the HLD and LLD
+# with the Python diagrams library (0.25.1 or later, latest Azure icons). uv fetches the library on first use.
+$uv = Get-FirstLine 'uv' @('--version')
+if ($uv) { Add-Result 'uv (diagrams 0.25.1+)' 'Azure track' 'OK' $uv }
+else { Add-Result 'uv (diagrams 0.25.1+)' 'Azure track' 'MISSING' 'Install: winget install --id astral-sh.uv -e' }
+$dot = Get-FirstLine 'dot' @('-V')
+if ($dot) { Add-Result 'Graphviz' 'Azure track' 'OK' $dot }
+elseif (Test-Path -LiteralPath 'C:\Program Files\Graphviz\bin\dot.exe') { Add-Result 'Graphviz' 'Azure track' 'NOT ON PATH' "winget does not add it. Run: [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\Program Files\Graphviz\bin', 'User'), then restart the terminal and your Copilot client" }
+else { Add-Result 'Graphviz' 'Azure track' 'MISSING' 'Install (elevated): winget install --id Graphviz.Graphviz -e, then run this check again' }
+
 # APM CLI - the VS Code client, and the Power Platform track's specialists (Part 07)
 $apm = Get-FirstLine 'apm' @('--version')
 if ($apm) {

@@ -6,13 +6,16 @@ fictitious customer, **Northwind Traders**, whose business case is split into th
 areas, each owned by a **delivery track**:
 
 1. a **product** squad turns the business case into a BRD, a PRD, Minimum Viable Experiments and a
-   backlog where every item carries a track tag, plus **one release per chosen track**, each marked
-   with a Git tag (`product/<track>-r1`). Participants choose the tracks up front, and whether the
-   product covers the whole case or only the business areas of those tracks;
+   backlog where every item carries a track tag and, once planned, a release tag. Each chosen track
+   gets **numbered releases** (`r1`, `r2`…), each marked with a Git tag (`product/<track>-r<n>`), so
+   the releases stay identifiable when the backlog is published to Azure DevOps, GitHub or Jira.
+   At the start of this part participants choose what to build — all tracks, one track or selected
+   tracks — and whether the product covers the whole case or only the business areas of those tracks;
 2. optionally, the releases are published to **Azure DevOps**;
 3. the squad is promoted to a federation;
 4. one team per chosen track builds from its own release, independently of the others:
-   - **Azure** (BA-01) plans the migration of Order Desk to Azure;
+   - **Azure** (BA-01) plans the migration of Order Desk to Azure, with HLD and LLD diagrams drawn
+     with the Python `diagrams` library (0.25.1+, latest Azure icons) and Graphviz;
    - **.NET** (BA-02) upgrades Order Desk from .NET Framework 4.8 to .NET 10;
    - **Power Platform** (BA-03) designs a delivery-claims solution with the `power-platform` pack.
 

@@ -115,7 +115,7 @@ spreadsheet.
 ## 4. Business areas and delivery tracks
 
 The work is split into independent business areas. Each area is delivered by its own team,
-on its own **delivery track**, from its own release. A track never waits for another one: a
+on its own **delivery track**, from its own numbered releases. A track never waits for another one: a
 dependency between areas is written down as an open item, not assumed. More areas and tracks
 can be added later in the same way.
 

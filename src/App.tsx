@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  apmCliReleaseUrl, apmCliVersion, docsUrl, installation, lessons, modeRule, modelGuidance,
-  notNeeded, observationNote, pwshNote, releaseTag, routingNote, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion,
-  trackNote, tracks, troubleshooting,
+  apmCliReleaseUrl, apmCliVersion, docsUrl, installation, lessons, modeRule, modelGuidance, releaseName,
+  notNeeded, observationNote, pwshNote, routingNote, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion,
+  trackModeOptions, trackNote, tracks, troubleshooting,
 } from './content'
 import type { Lesson, LessonStep, Prompt, SquadKey } from './content'
 import {
   agentSelection, chosenTracks, clientLabels, clients, decodeState, defaults, fillNames, lessonCheckId, missingSetup, nextClient, progress,
   promptBlockers, publicationFields, publicationLabels, renderPrompt, setupCheckId, squadLabels, squadNameError,
-  storageKey, themeKey, toggleCheck, toggleTrack, visibleAgenda, visibleAnswers, visibleLessons, visiblePrerequisites,
+  addTrack, pickTrack, setTrackMode, storageKey, themeKey, toggleCheck, visibleAgenda, visibleAnswers, visibleLessons, visiblePrerequisites,
 } from './state'
 import type { PublicationField, SavedState, Settings } from './state'
 import { canWriteFolders, downloadZip, getStarter, starterZipUrl } from './starter'
@@ -105,6 +105,7 @@ function App() {
     }
   }
   const updateSetting = <K extends keyof Settings>(key: K, value: Settings[K]) => persist({ ...saved, settings: { ...settings, [key]: value } })
+  const updateSettings = (partial: Partial<Settings>) => persist({ ...saved, settings: { ...settings, ...partial } })
   const toggle = (id: string) => persist({ ...saved, checked: toggleCheck(id, saved.checked) })
   async function copy(text: string) {
     try {
@@ -143,19 +144,30 @@ function App() {
   }
 
   function trackPicker(context: string, compact = false) {
-    return <section className={compact ? 'track-picker compact' : 'panel track-picker'} aria-label={`Delivery tracks and product scope (${context})`}>
-      {!compact && <span className="eyebrow">Your choice · shapes the product request and this guide</span>}
-      <h2>{compact ? 'Delivery tracks · Parts 05–07' : 'Choose your delivery tracks'}</h2>
-      <div className="track-options" role="group" aria-label={`Delivery tracks (${context})`}>
+    const mode = trackModeOptions.find(option => option.value === settings.trackMode) ?? trackModeOptions[0]
+    return <section className={compact ? 'track-picker compact' : 'panel track-picker'} aria-label={`What you build (${context})`}>
+      {!compact && <span className="eyebrow">Your choice · shapes the product request and hides the tracks you do not build</span>}
+      <h2>{compact ? 'What you build · Parts 05–07' : 'Choose what you build'}</h2>
+      <div className="routing-picker">
+        <span className="routing-label">Tracks</span>
+        <div className="segmented" role="radiogroup" aria-label={`Tracks to build (${context})`}>
+          {trackModeOptions.map(option => <button type="button" role="radio" key={option.value} aria-checked={settings.trackMode === option.value}
+            title={option.summary} onClick={() => updateSettings(setTrackMode(settings, option.value))}>{option.label}</button>)}
+        </div>
+        <span className="routing-summary">{mode.summary}</span>
+      </div>
+      <div className="track-options" role={settings.trackMode === 'one' ? 'radiogroup' : 'group'} aria-label={`Delivery tracks (${context})`}>
         {tracks.map(track => {
           const on = settings.tracks.includes(track.id)
-          const last = on && settings.tracks.length === 1
+          const locked = settings.trackMode === 'all' || (settings.trackMode === 'selected' && on && settings.tracks.length === 1)
           const lesson = lessons.find(item => item.id === track.lessonId)
-          return <label key={track.id} className={on ? 'track-option on' : 'track-option'} title={last ? 'Keep at least one track: the product team needs a release to write.' : undefined}>
-            <input type="checkbox" checked={on} disabled={last} onChange={() => updateSetting('tracks', toggleTrack(settings.tracks, track.id))} />
+          return <label key={track.id} className={on ? 'track-option on' : 'track-option'}
+            title={settings.trackMode === 'all' ? 'Choose One track or Selected tracks to leave a track out.' : locked ? 'Keep at least one track: the product team needs releases to write.' : undefined}>
+            <input type={settings.trackMode === 'one' ? 'radio' : 'checkbox'} name={`track-${context.replace(/\W+/g, '-')}`} checked={on} disabled={locked}
+              onChange={() => updateSettings(pickTrack(settings, track.id))} />
             <span><strong>{track.label}</strong><small>Part {lesson?.number} · {track.area} {track.areaName}</small>
               {!compact && <em>{track.summary}</em>}
-              <code>{releaseTag(track)}</code></span>
+              <code>{releaseName(track, 1)}, {releaseName(track, 2)}…</code></span>
           </label>
         })}
       </div>
@@ -295,8 +307,8 @@ function App() {
         </section>
         {starterPanel('Step 1 · Get the starter solution')}
       </>}
+      {lesson.id === 'product' && trackPicker(printOnly ? 'Part 02, print' : 'Part 02')}
       {lesson.id === 'orient' && <>
-        {trackPicker('Part 01')}
         <div className="rule-grid">
           <aside className="rule-box"><strong>{modeRule.title}</strong><p>{modeRule.body}</p></aside>
           <aside className="rule-box"><strong>{modelGuidance.title}</strong><p>{modelGuidance.body}</p></aside>
@@ -382,7 +394,7 @@ function App() {
     <section className="hero">
       <div className="eyebrow">Hands-on workshop · <a href={squadReleaseUrl} target="_blank" rel="noreferrer">HVE Squad v{squadVersion}</a> (latest release)</div>
       <h1>From one business case to <em>releases every team can build.</em></h1>
-      <p className="lead">A product team turns Northwind's business case into traceable documents and a backlog tagged by track, with one release per delivery track. You choose the tracks — Azure, .NET, Power Platform — and each track's team builds from its own release, independently of the others. You review, answer and approve along the way.</p>
+      <p className="lead">A product team turns Northwind's business case into traceable documents and a backlog tagged by track and by release, with numbered releases for each delivery track. You choose what to build — all tracks, one track or a selection of Azure, .NET and Power Platform — and each track's team builds from its own releases, independently of the others. You review, answer and approve along the way.</p>
       <div className="hero-actions">
         <button type="button" className="button starter-button" disabled={starterBusy} onClick={fetchStarter}>{starterBusy ? 'Writing files…' : 'Get the starter solution'}</button>
         <a className="button" href="#prepare">Start with Part 00 →</a>
@@ -392,7 +404,7 @@ function App() {
       <div className="hero-meta">
         <span><strong>~{Math.round(totalMinutes / 6) / 10} hours</strong>facilitated or self-paced</span>
         <span><strong>{chosen.length + 1} teams</strong>product · {chosen.map(track => track.label).join(' · ')}</span>
-        <span><strong>{chosen.length} {chosen.length === 1 ? 'release' : 'releases'}</strong>one Git tag per track</span>
+        <span><strong>Tagged releases</strong>r1, r2… per track, one Git tag each</span>
         <span><strong>0 deployments</strong>nothing touches Azure or a tenant</span>
       </div>
     </section>
@@ -400,12 +412,12 @@ function App() {
     <section className="card" aria-label="Journey">
       <div className="section-heading"><h2>One product, independent tracks</h2><span className="badge">Single squad → federation</span></div>
       <div className="journey">
-        <div><span>02</span><strong>Product</strong><small>Intake · BRD · PRD · MVE · tagged backlog · {chosen.length === 1 ? 'one release' : `${chosen.length} releases`}</small><em className="team-chip">{settings.productSquad}</em></div>
+        <div><span>02</span><strong>Product</strong><small>Intake · BRD · PRD · MVE · backlog tagged by track and release</small><em className="team-chip">{settings.productSquad}</em></div>
         <div className="optional"><span>03 · optional</span><strong>Azure DevOps</strong><small>Publish with approval</small></div>
-        {chosen.map(track => <div key={track.id} className="track-card"><span>{lessonNumber(track.lessonId)} · {track.area}</span><strong>{track.label}</strong><small>{track.produces}</small><code className="release-chip">{releaseTag(track)}</code><em className="team-chip">{settings[track.squadKey]}</em></div>)}
+        {chosen.map(track => <div key={track.id} className="track-card"><span>{lessonNumber(track.lessonId)} · {track.area}</span><strong>{track.label}</strong><small>{track.produces}</small><code className="release-chip">{releaseName(track, 1)}, {releaseName(track, 2)}…</code><em className="team-chip">{settings[track.squadKey]}</em></div>)}
         <div><span>08</span><strong>Together</strong><small>Status across teams · resume</small></div>
       </div>
-      <p className="small">Each track team starts from its own release after the federation is opened (Part 04) and never waits for another track. Do the tracks in any order; in a group session, split them across tables.</p>
+      <p className="small">Each track team starts from its own releases after the federation is opened (Part 04) and never waits for another track. Do the tracks in any order; in a group session, split them across tables.</p>
     </section>
     <div className="overview-grid">
       <section className="agenda-card">
@@ -437,7 +449,7 @@ function App() {
       <ul>
         <li>One prerequisites list, each tool tied to the part or track that needs it.</li>
         <li>One button for a ready-to-use folder; no manual repository setup.</li>
-        <li>Markdown business case: no PDF readers, Python or OCR.</li>
+        <li>Markdown business case: no PDF readers or OCR.</li>
         <li>Identifiers on every fact, so invented or missing requirements are easy to spot.</li>
         <li>An intake validator checks the case for gaps before any document is drafted.</li>
         <li>Engineering standards that define structure, style, file locations, track tags and releases.</li>
@@ -454,8 +466,8 @@ function App() {
   const hiddenPage = hiddenLesson && hiddenTrack && <section className="hidden-part">
     <div className="eyebrow">{hiddenLesson.eyebrow}</div>
     <h1>Part {hiddenLesson.number} is hidden</h1>
-    <p className="lead">You did not choose the {hiddenTrack.label} track, so its part is hidden from this guide. Tracks are independent: you can add it at any time.</p>
-    <button type="button" className="button primary" onClick={() => updateSetting('tracks', toggleTrack(settings.tracks, hiddenTrack.id))}>Add the {hiddenTrack.label} track</button>{' '}
+    <p className="lead">You did not choose the {hiddenTrack.label} track in Part 02, so its part is hidden from this guide. Tracks are independent: you can add it at any time, then ask the product team for its releases.</p>
+    <button type="button" className="button primary" onClick={() => updateSettings(addTrack(settings, hiddenTrack.id))}>Add the {hiddenTrack.label} track</button>{' '}
     <a className="button" href="#overview">Back to the overview</a>
   </section>
 

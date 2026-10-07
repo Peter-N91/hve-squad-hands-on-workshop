@@ -23,10 +23,11 @@ The squads create them during the workshop.
 
 ## Delivery tracks
 
-The product team writes one tagged release per delivery track you choose in the guide:
-**Azure** (business area BA-01), **.NET** (BA-02) and **Power Platform** (BA-03). Each track's
-team builds from its own release (`docs/product/releases/`, Git tag `product/<track>-r1`) and
-never waits for another track, so you can take one, two or all three.
+In the guide you choose what to build: all tracks, one track or a selection of **Azure**
+(business area BA-01), **.NET** (BA-02) and **Power Platform** (BA-03). The product team tags
+every backlog item with its track and, once planned, its release, and writes numbered releases
+for each chosen track (`docs/product/releases/<track>-r<n>.md`, Git tag `product/<track>-r<n>`).
+Each track's team builds from its own releases and never waits for another track.
 
 ## First steps
 

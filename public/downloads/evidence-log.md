@@ -25,8 +25,9 @@ Fill in only the sections of the tracks you chose.
 | Contradictions the intake validator flagged on its own (e.g. BR-04 vs CS-10, CS-27) | |
 | Questions the intake asked me | |
 | Backlog items without exactly one track tag | |
-| Release files in docs/product/releases | |
-| Git tags product/* created by the squad (yes / no, I created them) | |
+| Items in a release without its release tag | |
+| Releases per track (e.g. azure-r1, azure-r2) | |
+| Git tags product/* created by the squad, one per release (yes / no, I created them) | |
 | Corrections I asked for | |
 
 Notes on the team proposal, council and decisions:
@@ -36,7 +37,7 @@ Notes on the team proposal, council and decisions:
 | Measure | Value |
 |---|---|
 | Work items created | |
-| Track and release tags on the items? (yes/no) | |
+| Track and release tags on the items? Does filtering by a release tag match its release file? | |
 | Approval shown before creation? (yes/no) | |
 | Limitations hit | |
 
@@ -52,6 +53,8 @@ Notes on the team proposal, council and decisions:
 | Blockers from the review key found unprompted (of 12) | |
 | Blockers with file evidence | |
 | Bicep files that build / total | |
+| Diagram scripts that re-render / total (diagrams 0.25.1+, Azure icons) | |
+| Every Azure service drawn with its official icon? (yes/no) | |
 | Decision records for database and StockPilot exchange? | |
 | Estimated monthly cost vs EUR 1,500 (C-04) | |
 

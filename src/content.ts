@@ -1,15 +1,16 @@
 import { hveSquadRelease } from './hve-squad-release.ts'
 
 /**
- * A delivery track is one business area delivered by one federation team, from one release the
- * product team tags. Tracks are independent: a participant chooses any non-empty set, and the
- * parts of tracks they did not choose are hidden. To add a track, add it here, give it a lesson
+ * A delivery track is one business area delivered by one federation team, from numbered releases
+ * (r1, r2…) the product team tags. Tracks are independent: a participant builds all tracks, one
+ * track or a selection, and the parts of tracks they did not choose are hidden. To add a track, add it here, give it a lesson
  * with the same `track`, an agenda row, a squad name and a SetupId.
  */
 export type TrackId = 'azure' | 'dotnet' | 'powerPlatform'
 export type SetupId = 'product-team' | 'promote' | 'migration-team' | 'modernization-team' | 'power-platform-team'
 export type SquadKey = 'productSquad' | 'migrationSquad' | 'modernizationSquad' | 'powerPlatformSquad'
 export type Scope = 'full' | 'focused'
+export type TrackMode = 'all' | 'one' | 'selected'
 
 export type Track = {
   id: TrackId
@@ -44,21 +45,28 @@ export const tracks: Track[] = [
 ]
 export const trackIds = tracks.map(track => track.id)
 export const trackTag = (track: Track) => `track-${track.slug}`
-export const releaseName = (track: Track) => `${track.slug}-r1`
-export const releaseTag = (track: Track) => `product/${releaseName(track)}`
-export const releaseFile = (track: Track) => `docs/product/releases/${releaseName(track)}.md`
+/** A track can have several releases, numbered in delivery order. The name is also the backlog item's release tag. */
+export const releaseName = (track: Track, n: number | string = 1) => `${track.slug}-r${n}`
+export const releaseTag = (track: Track, n: number | string = 1) => `product/${releaseName(track, n)}`
+export const releaseFile = (track: Track, n: number | string = 1) => `docs/product/releases/${releaseName(track, n)}.md`
 
-export const trackNote = 'Tracks are independent. Each track team builds only from its own release and never waits for another; dependencies between tracks are recorded as open items. In a group session, each table can take a different track. A track you untick is hidden from this guide, and part numbers stay the same for everyone.'
+export const trackNote = 'Tracks are independent. Each track team builds only from its own releases and never waits for another; dependencies between tracks are recorded as open items. In a group session, each table can take a different track. A track you do not choose is hidden from this guide, and part numbers stay the same for everyone.'
+
+export const trackModeOptions: { value: TrackMode; label: string; summary: string }[] = [
+  { value: 'all', label: 'All tracks', summary: 'Build every track: Azure, .NET and Power Platform.' },
+  { value: 'one', label: 'One track', summary: 'Build a single track. The other tracks are hidden.' },
+  { value: 'selected', label: 'Selected tracks', summary: 'Tick the tracks you build. The others are hidden.' },
+]
 
 export const scopeOptions: { value: Scope; label: string; summary: string; detail: string }[] = [
-  { value: 'full', label: 'Whole case', summary: 'Documents and a backlog for every business area; a release for each chosen track.', detail: 'The product team covers the whole business case and tags every backlog item with its track, including areas no team takes today, so a track can be added later without rewriting the documents. Only the tracks you chose get a release.' },
+  { value: 'full', label: 'Whole case', summary: 'Documents and a backlog for every business area; releases only for the chosen tracks.', detail: 'The product team covers the whole business case and tags every backlog item with its track, including areas no team takes today, so a track can be added later without rewriting the documents. Only the tracks you chose get releases.' },
   { value: 'focused', label: 'Chosen areas only', summary: 'Documents and a backlog only for the business areas of your tracks.', detail: 'The product team writes the BRD, PRD, experiments and backlog only for the business areas of the tracks you chose, and lists the other areas as out of scope. Shorter, and focused on what your teams will build.' },
 ]
 
 /**
  * Text in prompts and lessons can adapt to the participant's choices:
  *   {productSquad} {migrationSquad} {modernizationSquad} {powerPlatformSquad}  registered team names
- *   {trackList} {areaList} {teamList} {releaseList}                           the chosen tracks
+ *   {trackList} {areaList} {teamList} {releaseNames} {releaseTags} {releaseList}  the chosen tracks
  *   [[condition:text]]  keeps text only when the condition holds. A condition is a track id,
  *   "full" or "focused" (the product scope); "a|b" means either, "a+b" means both.
  */
@@ -126,6 +134,9 @@ export const squadVersion: string = hveSquadRelease.version
 export const squadReleaseUrl: string = hveSquadRelease.url
 export const apmCliVersion = 'v0.29.0'
 export const apmCliReleaseUrl = `https://github.com/microsoft/apm/releases/tag/${apmCliVersion}`
+/** diagrams 0.25.0 moved its Azure nodes to Microsoft's Azure icons V18; 0.25.1 fixed the packaged icons. */
+export const diagramsVersion = '0.25.1'
+export const diagramsRequirement = `diagrams>=${diagramsVersion}`
 export const autopilotMode = 'mode="autopilot"'
 export const guideUrl = 'https://peter-n91.github.io/hve-squad-hands-on-workshop/'
 export const docsUrl = 'https://peter-n91.github.io/hve-squad/'
@@ -176,12 +187,14 @@ export const prerequisites: Prerequisite[] = [
   { what: `HVE Squad ${squadVersion}`, why: 'The squad coordinators and their specialists. The guide always targets the latest HVE Squad release.', part: 'All parts', check: 'Step 3 below', windows: 'Installed in step 3, per client', mac: 'Installed in step 3, per client', scope: 'everyone' },
   { what: `APM CLI ${apmCliVersion} (exactly)`, why: 'Installs the /squad prompts into the folder (VS Code), and the Power Platform pack\'s two specialists (any client).', part: 'VS Code users · Power Platform track', check: 'apm --version → 0.29.0', windows: "$env:VERSION = 'v0.29.0'; irm https://aka.ms/apm-windows | iex", mac: 'curl -sSL https://aka.ms/apm-unix | sh -s -- @v0.29.0', scope: 'client' },
   { what: 'Azure CLI with Bicep', why: 'Lets you check the infrastructure code locally. No Azure sign-in, no subscription.', part: 'Azure track · Part 05 (recommended)', check: 'az bicep version', windows: 'winget install --id Microsoft.AzureCLI -e, then az bicep install', mac: 'brew install azure-cli, then az bicep install', scope: 'later', track: 'azure' },
+  { what: `uv and the Python diagrams library ${diagramsVersion}+`, why: 'The Azure team draws the HLD and LLD with the Python diagrams library and the latest Azure icons (Azure icons V18). uv runs it without a Python setup and fetches the library on first use.', part: 'Azure track · Part 05 (required)', check: `uv run --with "${diagramsRequirement}" python -c "import diagrams.azure.compute"`, windows: 'winget install --id astral-sh.uv -e', mac: 'brew install uv', scope: 'later', track: 'azure' },
+  { what: 'Graphviz', why: 'The rendering engine behind the diagrams library. A system program, not a Python package.', part: 'Azure track · Part 05 (required)', check: 'dot -V', windows: `winget install --id Graphviz.Graphviz -e (elevated). winget does not add it to PATH: run [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\\Program Files\\Graphviz\\bin', 'User'), then restart the terminal and your Copilot client`, mac: 'brew install graphviz', scope: 'later', track: 'azure' },
   { what: '.NET 10 SDK', why: 'Builds and tests the modernized application.', part: '.NET track · Part 06', check: 'dotnet --list-sdks shows 10.x', windows: 'winget install --id Microsoft.DotNet.SDK.10 -e', mac: 'brew install --cask dotnet-sdk', scope: 'later', track: 'dotnet' },
   { what: 'Azure DevOps project access', why: 'Only to publish the backlog. Skipping it changes nothing later.', part: 'Part 03 (optional)', check: 'You can open the project in a browser', windows: 'Facilitator provides organization, project and your prefix', mac: 'Same as Windows', scope: 'later' },
 ]
 
-export const notNeeded = ['An Azure subscription', 'A Power Platform environment or licence', 'Visual Studio', 'Python, PDF readers or OCR', 'Node.js', 'Docker or Kubernetes']
-export const pwshNote = 'Restart your Copilot client after installing PowerShell 7 so it finds pwsh on PATH. On macOS and Linux you keep using your usual shell; pwsh only needs to be installed. Rows for tracks you did not choose are hidden.'
+export const notNeeded = ['An Azure subscription', 'A Power Platform environment or licence', 'Visual Studio', 'A Python installation (uv brings its own for the Azure diagrams)', 'PDF readers or OCR', 'Node.js', 'Docker or Kubernetes']
+export const pwshNote = 'Restart your Copilot client after installing PowerShell 7, or after adding Graphviz to PATH, so it finds pwsh and dot. On macOS and Linux you keep using your usual shell; pwsh only needs to be installed. Rows for tracks you did not choose are hidden.'
 
 export const installation: Record<'cli' | 'cliUpdate' | 'apm', Prompt> = {
   cli: {
@@ -216,7 +229,7 @@ const releaseShell: Prompt = {
 
 export const agenda: { lesson: string; title: string; minutes: number; note?: string; optional?: boolean }[] = [
   { lesson: 'prepare', title: 'Get ready', minutes: 0, note: 'Before the session · about 30 min' },
-  { lesson: 'orient', title: 'Meet Northwind & choose your tracks', minutes: 15 },
+  { lesson: 'orient', title: 'Meet Northwind & the method', minutes: 15 },
   { lesson: 'product', title: 'Shape the product', minutes: 60 },
   { lesson: 'ado', title: 'Publish to Azure DevOps', minutes: 20, optional: true },
   { lesson: 'federation', title: 'Open the federation', minutes: 10 },
@@ -251,33 +264,33 @@ export const lessons: Lesson[] = [
     recovery: 'Tell the facilitator what is blocked before the session. A missing tool for a track or for Part 03 does not stop you from starting: those parts say exactly what they need.',
   },
   {
-    id: 'orient', number: '01', title: 'Meet Northwind & choose your tracks', eyebrow: 'Start with the outcome', minutes: 15,
-    goal: 'Understand the customer, choose your delivery tracks and the product scope, and learn the difference between setting up a team and asking it for work.',
-    concept: 'One repository, one customer, one product team — and one team per delivery track you choose: Azure, .NET, Power Platform. The product team writes the documents and a tagged backlog with one release per track. After promotion to a federation, each track team builds only from its own release, so the tracks are independent: take one, two or all three, in any order. More tracks will be added over time.',
+    id: 'orient', number: '01', title: 'Meet Northwind & the method', eyebrow: 'Start with the outcome', minutes: 15,
+    goal: 'Understand the customer and its delivery tracks, and learn the difference between setting up a team and asking it for work.',
+    concept: 'One repository, one customer, one product team — and one team per delivery track you choose: Azure, .NET, Power Platform. The product team writes the documents and a backlog tagged by track and by release, with numbered releases for each track. At the start of Part 02 you choose what to build — all tracks, one track or a selection — and the tracks you do not choose stay hidden. After promotion to a federation, each track team builds only from its own releases, so the tracks are independent and can be done in any order. More tracks will be added over time.',
     inputs: ['Your northwind-workshop folder open in your client', 'knowledge-docs/business-case.md, section 4 (business areas and delivery tracks)'],
     steps: [
-      { title: 'Choose your tracks and the product scope', body: 'Use the panel above. Choose before Part 02: the product request names your tracks and asks for one release each. An unticked track is hidden from this guide. You can add a track later: tick it, ask the product team for that track\'s release, then follow its part.' },
+      { title: 'Know the tracks before you choose', body: 'Section 4 of business-case.md lists the business areas and the track that delivers each one. You choose at the start of Part 02 — all tracks, one track or selected tracks — together with how much of the case the product documents cover. The tracks you do not choose are hidden from this guide; you can add one later.' },
       { title: 'Read the case in five minutes', body: 'Northwind Traders, a food distributor in Lyon, has three business areas. BA-01: leave its data centre before the lease ends on 30 June 2027 (C-01). BA-02: a Customer Portal (BR-01 to BR-12) served by Order Desk, a .NET Framework 4.8 application. BA-03: a delivery-claims process that replaces a shared spreadsheet (BR-14 to BR-19). Every fact has an identifier. That is deliberate: you will use those identifiers to catch invented or missing requirements.' },
-      { title: 'Follow the chain', body: 'Product init → product work (the intake validator checks the case first, then documents and one tagged release per track) → (optional) publish to Azure DevOps → promote → for each track you chose: track init → track work → status across teams. Setup and work are always separate messages.' },
+      { title: 'Follow the chain', body: 'Product init → product work (the intake validator checks the case first, then documents and the tagged releases of each track) → (optional) publish to Azure DevOps → promote → for each track you chose: track init → track work → status across teams. Setup and work are always separate messages.' },
       { title: 'Know the three kinds of message', body: 'Setup (init, promote): no autopilot, you confirm. Work: autopilot plus your model routing, the squad runs the whole pipeline and stops for approvals. Questions: read-only, no mode. The guide labels every block and adds the right form for your client.' },
-      { title: 'Keep an honest evidence log', body: 'Download the evidence log from Resources. Record your tracks and scope, what the squad did without being asked, what needed your answer, and what was missing. The checkboxes in this guide are only your own record; they do not inspect your project.' },
+      { title: 'Keep an honest evidence log', body: 'Download the evidence log from Resources. Record what the squad did without being asked, what needed your answer, and what was missing. The checkboxes in this guide are only your own record; they do not inspect your project.' },
     ],
-    evidence: ['The evidence log, started, with your client, model, tracks and scope'],
-    checks: ['I can name the product team, the tracks I chose and what each produces.', 'I know which messages use autopilot and which do not.', 'I chose my delivery tracks and the product scope, and noted them in my evidence log.'],
+    evidence: ['The evidence log, started, with your client and model'],
+    checks: ['I can name the product team, the three tracks and what each produces.', 'I know which messages use autopilot and which do not.'],
     recovery: 'If your client opened a different folder, switch to northwind-workshop before continuing. The squads only see the folder that is open.',
   },
   {
     id: 'product', number: '02', title: 'Shape the product', eyebrow: 'From business case to tagged releases', minutes: 60,
-    goal: 'Turn the business case into reviewed requirements, experiments and a backlog tagged by track — with one release per track you chose and every statement traceable to its source.',
-    concept: 'You set up one planning team, then send a single work request. The team\'s intake validator checks the case for gaps and contradictions on its own before anything is drafted, and asks you when it needs a business decision. The request names your tracks and your scope[[full: (the whole case)]][[focused: ({areaList} only)]]. Every backlog item gets the tag of the track that delivers it, and each track gets its own release, marked with a Git tag. Your job is to answer as the customer, check that nothing was quietly invented, and approve the releases.',
-    inputs: ['knowledge-docs (business case, current state, engineering standards — ES-30 and ES-31 define tags and releases)', 'Your tracks and scope from Part 01', 'The business answers on this page — you play Northwind when the squad asks'],
+    goal: 'Choose what you build, then turn the business case into reviewed requirements, experiments and a backlog tagged by track and by release — with numbered releases for each chosen track and every statement traceable to its source.',
+    concept: 'First choose what you build in the panel below: all tracks, one track or selected tracks, and how much of the case the documents cover. The tracks you do not choose are hidden from the rest of this guide. Then you set up one planning team and send a single work request. The team\'s intake validator checks the case for gaps and contradictions on its own before anything is drafted, and asks you when it needs a business decision. The request names your tracks and your scope[[full: (the whole case)]][[focused: ({areaList} only)]]. Every backlog item gets the tag of the track that delivers it and, once planned, the tag of its release. A track can have several releases (r1, r2…), each marked with a Git tag, so wherever the backlog is later published — Azure DevOps, GitHub or Jira — you can tell which items belong to which release. Your job is to answer as the customer, check that nothing was quietly invented, and approve the releases.',
+    inputs: ['knowledge-docs (business case, current state, engineering standards — ES-30, ES-31 and ES-39 define tags and releases)', 'Your choice of tracks and scope, in the panel below', 'The business answers on this page — you play Northwind when the squad asks'],
     setup: [{
       id: 'product-team',
       title: '1. Set up the planning team',
       description: 'Select Squad Coordinator (App, CLI) or use /squad (VS Code). Send the message. The coordinator will offer a single squad or a federation: choose a single squad. Review the proposed team and confirm.',
       request: {
         title: 'Set up a team for the planning work', kind: 'setup', entry: 'squad', lifecycle: 'init',
-        text: "init\n\nUse the documents in knowledge-docs at the root of this repository as context: business-case.md, current-state.md and engineering-standards.md. We need to understand Northwind's needs[[full: across the whole business case]][[focused: in the business areas {areaList}]], define business and product requirements, test the riskiest assumptions and prepare a backlog with one release per delivery track ({trackList}) before any development starts. Set up a single team for this planning work. Stop once the team is ready; I will send the work request next.",
+        text: "init\n\nUse the documents in knowledge-docs at the root of this repository as context: business-case.md, current-state.md and engineering-standards.md. We need to understand Northwind's needs[[full: across the whole business case]][[focused: in the business areas {areaList}]], define business and product requirements, test the riskiest assumptions and prepare a backlog with tagged releases for each delivery track ({trackList}) before any development starts. Set up a single team for this planning work. Stop once the team is ready; I will send the work request next.",
       },
       expected: [
         'The coordinator proposes the product profile from the purpose of the work, without you naming it.',
@@ -289,10 +302,10 @@ export const lessons: Lesson[] = [
     flow: [
       {
         heading: '2. Ask for the product documents and the releases',
-        hint: 'Still with Squad Coordinator. One work request with mode="autopilot", built from your tracks and scope: the squad assesses the case itself — its intake validator looks for gaps and contradictions before anything is drafted — then plans, writes and reviews the documents and proposes one release per track. If it asks you something, answer as Northwind using the panel below. It should ask for your approval before it commits and tags the releases.',
+        hint: 'Still with Squad Coordinator. One work request with mode="autopilot", built from your tracks and scope: the squad assesses the case itself — its intake validator looks for gaps and contradictions before anything is drafted — then plans, writes and reviews the documents and proposes the releases of each track. If it asks you something, answer as Northwind using the panel below. It should ask for your approval before it commits and tags the releases.',
         prompt: {
-          title: 'Prepare the product documents and one release per track', kind: 'work', entry: 'squad', requiresSetup: ['product-team'],
-          text: "Using knowledge-docs at the root of this repository, turn Northwind's business case into documents my teams can review and build from. We deliver through these tracks, each run by its own team that builds only from its own release: {trackList}.[[full: Cover the whole business case, every business area (BA-) included, so another track can be added later.]][[focused: Cover only the business areas of those tracks — {areaList} — and list the other areas as out of scope.]]\n1. A business requirements document.\n2. A product requirements document for the first release.\n3. A Minimum Viable Experiment for each business area in scope, testing its riskiest assumption before we commit to building.\n4. A prioritized backlog of epics, features and user stories with acceptance criteria, including the enabler work a track needs before its features. Tag every item with the track that delivers it (ES-30).\n5. One first release per track, in docs/product/releases (ES-31):{releaseList}\nFollow engineering-standards.md for the writing style, the file locations and traceability: cite the source identifier for every requirement and story, label assumptions and open questions, and include the traceability table. Record dependencies between tracks as OPEN items; no release waits for another. When I approve the releases, commit the product documents and create the Git tag of each release. I want documents to review, not an implementation.",
+          title: 'Prepare the product documents and the releases of each track', kind: 'work', entry: 'squad', requiresSetup: ['product-team'],
+          text: "Using knowledge-docs at the root of this repository, turn Northwind's business case into documents my teams can review and build from. We deliver through these tracks, each run by its own team that builds only from its own releases: {trackList}.[[full: Cover the whole business case, every business area (BA-) included, so another track can be added later.]][[focused: Cover only the business areas of those tracks — {areaList} — and list the other areas as out of scope.]]\n1. A business requirements document.\n2. A product requirements document covering the planned releases.\n3. A Minimum Viable Experiment for each business area in scope, testing its riskiest assumption before we commit to building.\n4. A prioritized backlog of epics, features and user stories with acceptance criteria, including the enabler work a track needs before its features. Tag every item with the track that delivers it (ES-30).\n5. The releases of each track, in docs/product/releases (ES-31). A track can have several releases, numbered r1, r2… in delivery order: propose how many each track needs from the backlog priorities. Every item planned in a release carries that release's tag as well as its track tag, so the releases stay identifiable wherever the backlog is published — Azure DevOps, GitHub or Jira (ES-39):{releaseList}\nFollow engineering-standards.md for the writing style, the file locations and traceability: cite the source identifier for every requirement and story, label assumptions and open questions, and include the traceability table. Record dependencies between tracks as OPEN items; no release waits for another. When I approve the releases, commit the product documents and create the Git tag of each approved release. I want documents to review, not an implementation.",
         },
       },
     ],
@@ -310,7 +323,7 @@ export const lessons: Lesson[] = [
       'Each gap is either put to you as a question or recorded as an ASSUMPTION or OPEN item with an owner; nothing is silently invented.',
       'Your answers are recorded as decisions, not only acknowledged in chat.',
       'Every backlog item carries exactly one track tag, and a story that needs two tracks is split (ES-30).',
-      'Each release lists its dependencies on other tracks as OPEN items instead of waiting for them (ES-31).',
+      'Releases are numbered in delivery order, every item planned in a release carries that release\'s tag, and each release lists its dependencies on other tracks as OPEN items instead of waiting for them (ES-31).',
       'It asks for your approval before it commits the documents and creates the release tags.',
       'If a council is convened, it is sized to the work and recorded in the decision log with the roles that took part.',
     ],
@@ -321,7 +334,7 @@ export const lessons: Lesson[] = [
         { label: 'Coverage', detail: 'Open the traceability table. [[full:Every BR-01 to BR-19 and NFR-01 to NFR-09 must appear, either covered by a story or listed as not covered with a reason.]][[focused:Every BR- and NFR- identifier of {areaList} (see section 4 of business-case.md) must appear, covered by a story or listed as not covered with a reason, and the other areas must be listed as out of scope.]]' },
         { label: 'Invention', detail: 'Pick three stories. For each, open the identifier it cites. Does the source really say that? Anything else must be labelled ASSUMPTION.' },
         { label: 'Intake', detail: 'Find the open questions in scope[[full|dotnet: — OQ-01 to OQ-03 for BA-02]][[full|powerPlatform: — OQ-04 and OQ-05 for BA-03]][[full|azure|dotnet: — and the BR-04 / CS-10 conflict]]. Each should be resolved by your answer or listed as ASSUMPTION or OPEN with an owner — never quietly decided.' },
-        { label: 'Tags and releases', detail: 'Every backlog item carries exactly one track tag (ES-30). Each release file in docs/product/releases names its stories, the identifiers it covers, what it leaves out and its dependencies on other tracks as OPEN items (ES-31). Could its team start without waiting for another track?' },
+        { label: 'Tags and releases', detail: 'Every backlog item carries exactly one track tag (ES-30), and every item planned in a release carries exactly one release tag, such as {releaseNames} (ES-31). Each release file in docs/product/releases names its stories, the identifiers it covers, what it leaves out and its dependencies on other tracks as OPEN items (ES-31). Could its team start without waiting for another track?' },
         { label: 'Readability', detail: 'Give one story to someone who has not read the case. Could they build it from the story and its Given/When/Then criteria alone (ES-05)?' },
       ],
     },
@@ -330,28 +343,28 @@ export const lessons: Lesson[] = [
       { title: 'Check coverage and invention', body: 'Use the review key above. Record how many requirements were covered, how many invented statements you found and whether they were labelled as assumptions.' },
       { title: 'Challenge the experiments', body: 'A Minimum Viable Experiment tests an assumption before you build; it is not an MVP. For each area in scope, which assumption did the squad pick[[full|dotnet: (for example, that customers will actually reorder online — SM-01)]][[full|powerPlatform: (for example, that staff can record a claim in under 2 minutes — BR-14)]]? What is the cheapest test, the measure and the decision threshold? An experiment that has not been run has no results.' },
       { title: 'Correct, do not rewrite', body: 'If something is wrong, tell the squad what is wrong and why, citing the identifier, and let it fix the document. That correction is part of your evidence.' },
-      { title: 'Approve the releases and check the tags', body: 'Read each release file: could its team build it without waiting for another track? Approve the releases, then check that the squad committed the documents and created one Git tag per track you chose: {releaseTags}. If it did not, create them yourself (see Resources) and record that you had to.', prompt: releaseShell },
+      { title: 'Approve the releases and check the tags', body: 'Read each release file: could its team build it without waiting for another track? Approve the releases, then check that the squad committed the documents and created one Git tag per approved release, for example {releaseTags}. If it did not, create them yourself (see Resources) and record that you had to.', prompt: releaseShell },
     ],
-    evidence: ['docs/product with the BRD, PRD, experiments, backlog and traceability table', 'docs/product/releases with one release per chosen track, and the product/* Git tags', 'What the intake found on its own, and what it asked you', 'Your coverage and invention counts', 'At least one correction you asked for'],
+    evidence: ['What you build (all, one or selected tracks) and the product scope, in your evidence log', 'docs/product with the BRD, PRD, experiments, backlog and traceability table', 'docs/product/releases with the numbered releases of each chosen track, and one product/* Git tag per release', 'What the intake found on its own, and what it asked you', 'Your coverage and invention counts', 'At least one correction you asked for'],
     checks: [
       'The traceability table lists every BR- and NFR- identifier in scope.',
       'I checked three stories against their sources and recorded what I found.',
       'Every open question in scope is answered or labelled ASSUMPTION or OPEN[[full|azure|dotnet:, and so is the BR-04 / CS-10 conflict]].',
-      'I approved one release per chosen track, and git tag -l "product/*" lists their tags.',
+      'I approved the releases of each chosen track, and git tag -l "product/*" lists one tag per release.',
     ],
     recovery: 'If the documents are not finished after 45 minutes, ask the squad to finish the backlog, the release files and the traceability table first: the track teams build from the releases. Never copy documents from another participant to catch up — note the gap instead.',
   },
   {
     id: 'ado', number: '03', title: 'Publish to Azure DevOps', eyebrow: 'Optional · team visibility', minutes: 20, optional: true,
-    goal: 'Put the approved releases and documents in Azure DevOps, tagged by track, with your approval before anything is created.',
-    concept: 'This part is optional. Nothing later depends on it: each track team reads its release from docs/product/releases. Do it if your facilitator prepared an Azure DevOps project; skip it otherwise.',
+    goal: 'Put the approved releases and documents in Azure DevOps, tagged by track and by release, with your approval before anything is created.',
+    concept: 'This part is optional. Nothing later depends on it: each track team reads its release from docs/product/releases. Do it if your facilitator prepared an Azure DevOps project; skip it otherwise. The track and release tags are what make the releases identifiable after publishing; the same tags become labels and milestones in GitHub, or labels and fix versions in Jira (ES-39).',
     inputs: ['Your approved releases in docs/product/releases', 'Organization, project and your participant prefix from the facilitator', 'The Azure DevOps MCP server configured in your client (below)'],
     flow: [{
       heading: 'Publish the approved releases',
       hint: 'Fill in Session setup first (top right): the guide adds your project details to the request. Stay with Squad Coordinator — the product team is still a single squad at this point.',
       prompt: {
         title: 'Make the releases available to the teams', kind: 'work', entry: 'squad', requiresSetup: ['product-team'], requiresChecks: ['product-3'], publication: true,
-        text: 'We are happy with the reviewed plan. Publish the approved releases to our Azure DevOps project as epics, features and user stories with their acceptance criteria, keeping the source identifiers in each description (ES-29). Store the business requirements, product requirements and experiment designs at the agreed documentation location and link them to the relevant work items. Tag every work item nw-workshop, its track tag (ES-30) and its release name, for example azure-r1, and start every title with my participant prefix (ES-28). Show me the exact changes and wait for my approval before creating anything.',
+        text: 'We are happy with the reviewed plan. Publish the approved releases to our Azure DevOps project as epics, features and user stories with their acceptance criteria, keeping the source identifiers in each description (ES-29). Store the business requirements, product requirements and experiment designs at the agreed documentation location and link them to the relevant work items. Tag every work item nw-workshop, its track tag (ES-30) and, if it is planned in a release, its release tag such as azure-r1 (ES-31, ES-39), and start every title with my participant prefix (ES-28). Show me the exact changes and wait for my approval before creating anything.',
       },
     }],
     behaviors: [
@@ -362,16 +375,16 @@ export const lessons: Lesson[] = [
     steps: [
       { title: 'Connect the official Azure DevOps MCP server', body: 'Use Microsoft\'s hosted (remote) server: no Node.js, no token, you sign in with your work account. Add it to your client as shown in the panel below, then ask Copilot "List my Azure DevOps projects" to confirm it works.' },
       { title: 'Review before you approve', body: 'Check the number of items, the hierarchy, the titles with your prefix, the track and release tags and the documentation destination. Approve only what you reviewed. A changed batch needs a new approval.' },
-      { title: 'Inspect the result in the browser', body: 'Open two created work items. Do they show the acceptance criteria, the source identifiers and the track tag? Are the documents linked? Filter the backlog by one track tag: does it match that track\'s release?' },
+      { title: 'Inspect the result in the browser', body: 'Open two created work items. Do they show the acceptance criteria, the source identifiers and the track tag? Are the documents linked? Filter the backlog by one release tag, for example azure-r1: does it list exactly the items of that release file?' },
     ],
     evidence: ['Work-item identifiers and links', 'The approval you gave', 'Any limitation you hit'],
-    checks: ['I reviewed the exact changes before approving them.', 'I opened created work items and checked their content, tags and links.'],
+    checks: ['I reviewed the exact changes before approving them.', 'I opened created work items and checked their content, track and release tags and links.'],
     recovery: 'Known limitation: in some clients, MCP servers are visible to the coordinator but not to the specialists it dispatches. If the squad reports it cannot reach Azure DevOps, let it publish from the coordinator, or skip this part and record the limitation. Never work around it with a personal access token in a file or prompt.',
   },
   {
     id: 'federation', number: '04', title: 'Open the federation', eyebrow: 'Single squad → federation', minutes: 10,
     goal: 'Keep the product team and everything it produced, and make room for one team per delivery track you chose.',
-    concept: 'Promotion turns your single squad into the first member of a federation, keeping its decisions and history. Each track team you add next is a separate member with its own roster, decisions and history, and builds only from its own release — so the track parts that follow can be done in any order, and any of them can be skipped.',
+    concept: 'Promotion turns your single squad into the first member of a federation, keeping its decisions and history. Each track team you add next is a separate member with its own roster, decisions and history, and builds only from its own releases — so the track parts that follow can be done in any order, and any of them can be skipped.',
     inputs: ['Your approved releases in docs/product/releases and their product/* Git tags'],
     setup: [{
       id: 'promote',
@@ -399,8 +412,8 @@ export const lessons: Lesson[] = [
   {
     id: 'migration', number: '05', track: 'azure', title: 'Plan the Azure migration', eyebrow: 'Azure track · BA-01', minutes: 60,
     goal: 'Add an Azure team that builds from the Azure release and produces an evidence-based plan to move Order Desk to Azure — without deploying anything.',
-    concept: 'The Azure team builds only from its own release and does not wait for any other track. It reads the code and scripts, not just the documents: the blockers are in the files. Its application-change list is useful to whoever modernizes Order Desk[[dotnet:, and the .NET team can align with it if it exists — it never waits for it]].',
-    inputs: ['The Azure release: docs/product/releases/azure-r1.md (Git tag product/azure-r1)', 'knowledge-docs/current-state.md and the code in src/ and database/', 'Azure CLI with Bicep (recommended, for checking the infrastructure code)'],
+    concept: 'The Azure team builds only from its own releases and does not wait for any other track. It reads the code and scripts, not just the documents: the blockers are in the files. Its application-change list is useful to whoever modernizes Order Desk[[dotnet:, and the .NET team can align with it if it exists — it never waits for it]].',
+    inputs: ['The first Azure release: docs/product/releases/azure-r1.md (Git tag product/azure-r1). Later releases (r2, r3…) are built the same way', 'knowledge-docs/current-state.md and the code in src/ and database/', 'Azure CLI with Bicep (recommended, for checking the infrastructure code)', `uv and Graphviz, so the diagrams render with the latest Azure icons (Python diagrams library ${diagramsVersion} or later)`],
     setup: [
       {
         id: 'migration-team',
@@ -408,7 +421,7 @@ export const lessons: Lesson[] = [
         description: 'Use the federation coordinator. Send the message, review the proposed team and confirm. If the squad registers a different name, update it in Session setup.',
         request: {
           title: 'Add a team for the Azure migration', kind: 'setup', entry: 'squad-federation', lifecycle: 'init', requiresSetup: ['promote'],
-          text: 'init\n\nAdd a new team named "{migrationSquad}" to this federation. Its job: plan moving Order Desk and its database from Northwind\'s Lyon data centre to Azure — target architecture, infrastructure as code, cost and the migration plan — from the Azure release the product team tagged product/azure-r1. Use as context knowledge-docs (especially current-state.md, business area BA-01 and the constraints in business-case.md, and the Azure standards in engineering-standards.md), the code in src/, the scripts in database/ and docs/product. Keep the "{productSquad}" team\'s work and responsibilities separate. Set up this team only; I will send the work request next.',
+          text: 'init\n\nAdd a new team named "{migrationSquad}" to this federation. Its job: plan moving Order Desk and its database from Northwind\'s Lyon data centre to Azure — target architecture, infrastructure as code, cost and the migration plan — from the Azure releases the product team tagged product/azure-r1, product/azure-r2 and so on, starting with product/azure-r1. Use as context knowledge-docs (especially current-state.md, business area BA-01 and the constraints in business-case.md, and the Azure standards in engineering-standards.md), the code in src/, the scripts in database/ and docs/product. Keep the "{productSquad}" team\'s work and responsibilities separate. Set up this team only; I will send the work request next.',
         },
         expected: [
           'An Azure-oriented profile is proposed from the purpose of the work, without you naming it.',
@@ -423,7 +436,7 @@ export const lessons: Lesson[] = [
       hint: 'The guide adds squad="…" so the request goes to the Azure team, plus mode="autopilot" and your model routing. Expect this to take 20 to 35 minutes; review the product of each stage as it appears.',
       prompt: {
         title: 'Plan the move to Azure', kind: 'work', entry: 'squad-federation', requiresSetup: ['migration-team'], squadTarget: 'migrationSquad',
-        text: 'Plan the move of Order Desk and its database to Azure before the data-centre lease ends (C-01), for the release tagged product/azure-r1 (docs/product/releases/azure-r1.md). Use knowledge-docs, the code in src/ and the scripts in database/. I need:\n1. An assessment of everything that blocks running Order Desk on Azure platform services, with evidence (file and line) from the code and scripts.\n2. A target architecture: high-level and low-level design with decision records, including how Order Desk keeps exchanging data with StockPilot, which stays on premises (C-03), often enough to meet BR-04.\n3. Bicep for a test and a production environment under infra/, following engineering-standards.md, validated locally with az bicep build but not deployed.\n4. A monthly cost estimate for both environments compared with the budget in C-04.\n5. A phased migration plan with data migration, cut-over and rollback steps that meets NFR-06 and BR-13.\n6. A numbered list of the application changes Order Desk needs to run on the chosen platform, for whichever team modernizes it.\nFollow engineering-standards.md. Record dependencies on other tracks as OPEN items; do not wait for them. Do not deploy, sign in to Azure or create any resource.',
+        text: `Plan the move of Order Desk and its database to Azure before the data-centre lease ends (C-01), for the release tagged product/azure-r1 (docs/product/releases/azure-r1.md). Use knowledge-docs, the code in src/ and the scripts in database/. I need:\n1. An assessment of everything that blocks running Order Desk on Azure platform services, with evidence (file and line) from the code and scripts.\n2. A target architecture: high-level and low-level design with decision records, including how Order Desk keeps exchanging data with StockPilot, which stays on premises (C-03), often enough to meet BR-04.\n3. Architecture diagrams for the high-level and the low-level design, drawn with the python-diagrams skill: Python generator scripts that use the diagrams library (${diagramsRequirement}, which carries the latest Azure icons) and only its diagrams.azure nodes for Azure services, rendered with Graphviz to PNG and SVG files committed in docs/architecture next to their scripts (ES-38). Run them with uv run --with "${diagramsRequirement}". Do not replace them with Mermaid; if uv, the library or Graphviz is missing, stop and tell me what to install.\n4. Bicep for a test and a production environment under infra/, following engineering-standards.md, validated locally with az bicep build but not deployed.\n5. A monthly cost estimate for both environments compared with the budget in C-04.\n6. A phased migration plan with data migration, cut-over and rollback steps that meets NFR-06 and BR-13.\n7. A numbered list of the application changes Order Desk needs to run on the chosen platform, for whichever team modernizes it.\nFollow engineering-standards.md. Record dependencies on other tracks as OPEN items; do not wait for them. Do not deploy, sign in to Azure or create any resource.`,
       },
     }],
     behaviors: [
@@ -431,6 +444,7 @@ export const lessons: Lesson[] = [
       'Because the request crosses architecture, cost and security, a council is convened before implementation and its verdict is recorded.',
       'Choices between options (for example Azure SQL Database versus SQL Managed Instance) are written as decision records with the rejected option and why.',
       'The review stage checks the Bicep against the standards and reports findings instead of declaring success.',
+      'The architect uses the python-diagrams skill: a generator script per diagram and paired PNG and SVG files, with every Azure service drawn as a diagrams.azure node, not a generic box.',
     ],
     reviewKey: {
       title: 'Blockers hidden in the starter — how many did the squad find?',
@@ -452,6 +466,11 @@ export const lessons: Lesson[] = [
     },
     steps: [
       { title: 'Score the assessment', body: 'Use the review key. Record how many blockers were found unprompted and whether each cites a file. Ask the squad about any that are missing, and note that you had to.' },
+      { title: 'Render the diagrams yourself', body: `Run the command below. Every generator script in docs/architecture should render again on your machine, with the latest Azure icons (diagrams ${diagramsVersion} or later). Open the PNG or SVG: does each Azure service show its official icon, and does the LLD show the private endpoints (ES-25) and the StockPilot link?`, prompt: {
+        title: 'Re-render every architecture diagram', kind: 'shell',
+        text: `Get-ChildItem docs/architecture -Recurse -Filter *.py | Where-Object Name -ne 'diagram_io.py' | ForEach-Object { Push-Location $_.DirectoryName; uv run --quiet --with "${diagramsRequirement}" python $_.Name; $code = $LASTEXITCODE; Pop-Location; "{0}  {1}" -f ($(if ($code -eq 0) { "OK  " } else { "FAIL" })), $_.FullName }`,
+        bash: `find docs/architecture -name "*.py" ! -name diagram_io.py | while read -r f; do (cd "$(dirname "$f")" && uv run --quiet --with "${diagramsRequirement}" python "$(basename "$f")") && echo "OK    $f" || echo "FAIL  $f"; done`,
+      } },
       { title: 'Read the decisions, not just the diagrams', body: 'Open docs/architecture. For the database and the StockPilot exchange, is there a decision record that names the options, the choice and the reason? Does the design stay within C-04 and C-06 (no Kubernetes)?' },
       { title: 'Validate the infrastructure code yourself', body: 'Run the command below in your terminal. Every Bicep file should build without errors. Check one file for the naming (ES-23), tags (ES-24) and private endpoints (ES-25).', prompt: {
         title: 'Build every Bicep file locally', kind: 'shell',
@@ -460,28 +479,29 @@ export const lessons: Lesson[] = [
       } },
       { title: 'Check the hand-over', body: 'Open the numbered list of application changes. Each change should name the file or component, the reason and the target approach, so that a team that was not in the room can act on it.[[dotnet: The .NET team can use it, but must not have to wait for it.]]' },
     ],
-    evidence: ['docs/architecture, docs/migration and infra/', 'Your blocker score and the Bicep validation output', 'The numbered application-change list'],
+    evidence: ['docs/architecture with the diagram scripts and their PNG and SVG files, docs/migration and infra/', 'Your blocker score, the diagram rendering output and the Bicep validation output', 'The numbered application-change list'],
     checks: [
       'I scored the assessment against the review key.',
       'I found decision records for the database and the StockPilot exchange.',
       'Every Bicep file builds locally, or I recorded which one fails and why.',
       'The application-change list exists and names files and target approaches.',
       'Nothing was deployed and no Azure resource was created.',
+      'The HLD and LLD diagrams re-render on my machine as PNG and SVG with the latest Azure icons.',
     ],
-    recovery: 'If the run is still going after 40 minutes, let it finish the assessment and the change list first. Diagrams in Azure icons need Python and Graphviz; Mermaid diagrams are fine for this workshop.',
+    recovery: 'If the run is still going after 40 minutes, let it finish the assessment and the change list first. If the diagrams do not render, check dot -V and uv --version, then see "The architecture diagrams do not render" in Resources. Do not accept Mermaid instead: record the problem and ask the squad to re-run the generators once the tools work.',
   },
   {
     id: 'modernize', number: '06', track: 'dotnet', title: 'Modernize to .NET 10', eyebrow: '.NET track · BA-02', minutes: 60,
     goal: 'Add a .NET team that delivers the enabler of the .NET release: upgrade Order Desk in place from .NET Framework 4.8 to .NET 10 — with every pricing test still passing.',
-    concept: 'The .NET team builds only from its own release and does not wait for any other track. It finds the blockers itself[[azure:; if the Azure team has already produced its application-change list, it follows the approaches chosen there]]. Success is measurable: the solution builds and its tests pass with the .NET CLI on any operating system, the pricing assertions are unchanged, and the solution still has three projects.',
-    inputs: ['The .NET release: docs/product/releases/dotnet-r1.md (Git tag product/dotnet-r1)', 'The solution in src/ (28 tests today, Windows and Visual Studio only)', '.NET 10 SDK', '[[azure:Optional: the Azure team\'s architecture and application-change list, if they exist]]'],
+    concept: 'The .NET team builds only from its own releases and does not wait for any other track. It finds the blockers itself[[azure:; if the Azure team has already produced its application-change list, it follows the approaches chosen there]]. Success is measurable: the solution builds and its tests pass with the .NET CLI on any operating system, the pricing assertions are unchanged, and the solution still has three projects.',
+    inputs: ['The first .NET release: docs/product/releases/dotnet-r1.md (Git tag product/dotnet-r1). Later releases (r2, r3…) are built the same way', 'The solution in src/ (28 tests today, Windows and Visual Studio only)', '.NET 10 SDK', '[[azure:Optional: the Azure team\'s architecture and application-change list, if they exist]]'],
     setup: [{
       id: 'modernization-team',
       title: '1. Add the .NET team',
       description: 'Use the federation coordinator. Send the message, review the proposed team and confirm. Update the name in Session setup if the squad registers a different one.',
       request: {
         title: 'Add a team for the .NET modernization', kind: 'setup', entry: 'squad-federation', lifecycle: 'init', requiresSetup: ['promote'],
-        text: 'init\n\nAdd a new team named "{modernizationSquad}" to this federation. Its job: modernize the Order Desk application in src/ from .NET Framework 4.8 to .NET 10, as the enabler of the .NET release the product team tagged product/dotnet-r1, so it can serve the Customer Portal and run on Azure platform services. Use as context knowledge-docs (especially engineering-standards.md), the solution in src/ and docs/product[[azure:, and, if they exist, the architecture and application-change list of the "{migrationSquad}" team]]. Keep the other teams\' work and responsibilities separate. Set up this team only; I will send the work request next.',
+        text: 'init\n\nAdd a new team named "{modernizationSquad}" to this federation. Its job: modernize the Order Desk application in src/ from .NET Framework 4.8 to .NET 10, as the enabler of the .NET releases the product team tagged product/dotnet-r1, product/dotnet-r2 and so on, starting with product/dotnet-r1, so it can serve the Customer Portal and run on Azure platform services. Use as context knowledge-docs (especially engineering-standards.md), the solution in src/ and docs/product[[azure:, and, if they exist, the architecture and application-change list of the "{migrationSquad}" team]]. Keep the other teams\' work and responsibilities separate. Set up this team only; I will send the work request next.',
       },
       expected: [
         'A modernization-oriented profile is proposed without you naming it.',
@@ -531,15 +551,15 @@ export const lessons: Lesson[] = [
   {
     id: 'powerplatform', number: '07', track: 'powerPlatform', title: 'Design the claims solution on Power Platform', eyebrow: 'Power Platform track · BA-03', minutes: 60,
     goal: 'Add a Power Platform team that turns its release into a claims solution a maker team could build — Dataverse model, app, approval flow, integration, environments and licences — without touching a real environment.',
-    concept: 'The Power Platform team builds only from its own release and does not wait for any other track. Power Platform expertise arrives as a pack on top of the team\'s profile: the squad proposes the power-platform pack because the request names the platform, and asks you to install its two specialists. The hard problems here are licences, on-premises data and approvals, not code.',
-    inputs: ['The Power Platform release: docs/product/releases/power-platform-r1.md (Git tag product/power-platform-r1)', 'knowledge-docs: BA-03, C-07 and C-08 in business-case.md, CS-24 to CS-28 in current-state.md, ES-32 to ES-37 in engineering-standards.md', `APM CLI ${apmCliVersion}, to install the pack's two specialists when the squad asks`],
+    concept: 'The Power Platform team builds only from its own releases and does not wait for any other track. Power Platform expertise arrives as a pack on top of the team\'s profile: the squad proposes the power-platform pack because the request names the platform, and asks you to install its two specialists. The hard problems here are licences, on-premises data and approvals, not code.',
+    inputs: ['The first Power Platform release: docs/product/releases/power-platform-r1.md (Git tag product/power-platform-r1). Later releases (r2, r3…) are built the same way', 'knowledge-docs: BA-03, C-07 and C-08 in business-case.md, CS-24 to CS-28 in current-state.md, ES-32 to ES-37 in engineering-standards.md', `APM CLI ${apmCliVersion}, to install the pack's two specialists when the squad asks`],
     setup: [{
       id: 'power-platform-team',
       title: '1. Add the Power Platform team',
       description: 'Use the federation coordinator. It should propose a profile together with the power-platform pack, and show the install commands of the pack\'s two specialists. Run them in a terminal inside the northwind-workshop folder (add --target copilot if APM reports "No harness detected"), reload your client if needed, then confirm. If you cannot install them, go on without those roles and record it.',
       request: {
         title: 'Add a team for the delivery-claims solution', kind: 'setup', entry: 'squad-federation', lifecycle: 'init', requiresSetup: ['promote'],
-        text: 'init\n\nAdd a new team named "{powerPlatformSquad}" to this federation. Its job: design the delivery-claims solution of business area BA-03 on Power Platform — Power Apps, Power Automate and Dataverse — from the Power Platform release the product team tagged product/power-platform-r1. Use as context knowledge-docs (especially BA-03 in business-case.md, the claims facts in current-state.md and the Power Platform standards in engineering-standards.md) and docs/product. Keep the other teams\' work and responsibilities separate. Set up this team only; I will send the work request next.',
+        text: 'init\n\nAdd a new team named "{powerPlatformSquad}" to this federation. Its job: design the delivery-claims solution of business area BA-03 on Power Platform — Power Apps, Power Automate and Dataverse — from the Power Platform releases the product team tagged product/power-platform-r1, product/power-platform-r2 and so on, starting with product/power-platform-r1. Use as context knowledge-docs (especially BA-03 in business-case.md, the claims facts in current-state.md and the Power Platform standards in engineering-standards.md) and docs/product. Keep the other teams\' work and responsibilities separate. Set up this team only; I will send the work request next.',
       },
       expected: [
         'A profile is proposed together with the power-platform pack, because the request names the platform.',
@@ -650,8 +670,10 @@ export const troubleshooting: [string, string][] = [
   ['The starter button only downloads a zip', 'Your browser cannot write to folders (Firefox and Safari). Extract the zip wherever you want the workshop folder; it contains a single northwind-workshop folder.'],
   ['The folder already exists', 'The guide never overwrites. Choose another location, or rename the existing folder first.'],
   ['Which tracks should I choose?', 'The tracks your practice delivers. Azure and .NET work on the legacy code; Power Platform is about licences, data and approvals. They are independent, so one track is enough for a first run. In a group, split the tracks across tables.'],
-  ['I want to add a track later', 'Tick it in the track panel. With the "Whole case" scope, its backlog items are already tagged: ask the product team (federation coordinator, squad="product" or your registered name) for that track\'s release and its Git tag. With "Chosen areas only", ask the product team to extend the documents and backlog to that business area first. Then follow the track\'s part.'],
-  ['The squad did not create the release tags', 'Commit the approved documents (git add docs/product, then git commit -m "Product releases") and create one tag per approved release, for example git tag product/azure-r1, product/dotnet-r1 or product/power-platform-r1. Record that you had to.'],
+  ['I want to add a track later', 'In Part 02, choose Selected tracks and tick it. With the "Whole case" scope, its backlog items are already tagged: ask the product team (federation coordinator, squad="product" or your registered name) for that track\'s releases and their Git tags. With "Chosen areas only", ask the product team to extend the documents and backlog to that business area first. Then follow the track\'s part.'],
+  ['The squad did not create the release tags', 'Commit the approved documents (git add docs/product, then git commit -m "Product releases") and create one tag per approved release, for example git tag product/azure-r1, then product/azure-r2 for the next one. Record that you had to.'],
+  ['How do I build a track\'s next release?', 'Each track part builds the first release (r1). For the next one, send the same work request to the same team again, replacing r1 with r2 in the release tag and file name. The team keeps its history, so it builds on what it did for r1.'],
+  ['How do the release tags map to GitHub or Jira?', 'ES-39 in engineering-standards.md: in Azure DevOps the track and release tags are work-item tags; in GitHub they are issue labels, and each release is also a milestone; in Jira they are labels, and each release is also a fix version. The Git tag product/<track>-r<n> always marks the approved documents of that release.'],
   ['git commit asks who I am', 'Set an identity for this folder only: git config user.name "Your Name" and git config user.email you@example.com. Then commit again.'],
   ['Which agent do I select?', 'Parts 02–03: Squad Coordinator (VS Code: /squad). Parts 04–08: Squad Federation Coordinator (VS Code: /squad-federation). Part 00 readiness question: no squad agent. In VS Code, pick the prompt "Hands a request to…", not the skill with the same name.'],
   ['The coordinators are missing from the agent list', 'Check the client you actually use: the App and the CLI can have different plugin homes. Both hve-squad and hve-squad-hve-core must be installed. Do not also install the official hve-core plugin.'],
@@ -666,6 +688,7 @@ export const troubleshooting: [string, string][] = [
   ['Azure DevOps works in chat but not for the specialists', 'A known limitation in some clients: MCP servers configured for the session are not always visible to dispatched specialists. Let the coordinator publish, or skip Part 03. Use the official remote server only; behaviour differs with custom servers.'],
   ['The squad wants to create many projects', 'Refer it to ES-13: one solution, existing Core, Web and Tests projects. Any extra project needs a decision record.'],
   ['dotnet test fails before Part 06', 'Expected. The legacy tests use MSTest v1 from a Visual Studio installation (CS-18). Making them run with the .NET CLI is the .NET team\'s job.'],
+  ['The architecture diagrams do not render', `Check the two tools first: dot -V (Graphviz) and uv --version. On Windows, winget installs Graphviz without adding it to PATH, and a $env:PATH change in a terminal does not reach your Copilot client. Add it once for your user: [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\\Program Files\\Graphviz\\bin', 'User'), then restart the terminal and the Copilot client. If python prints "Python was not found", that is the Microsoft Store stub: use uv, which brings its own Python. If uv cannot download the library behind a corporate proxy, set UV_NATIVE_TLS=1 or ask the facilitator for a package mirror. Ask for ${diagramsRequirement}: older releases lack the latest Azure icons.`],
   ['Bicep fails to build', 'Run az bicep install (or az bicep upgrade). If it still fails, give the squad the exact error and record that the review missed it.'],
   ['APM says "No harness detected" or installs fail', `Use APM CLI ${apmCliVersion} exactly and add --target copilot. Authenticate GitHub first (gh auth login) to avoid slow anonymous rate limits.`],
   ['I am on macOS', 'Use bash tools/ready.sh and the bash variant shown under each terminal command. Everything else is identical.'],
@@ -688,6 +711,10 @@ export const sources = [
   { name: 'GitHub Copilot CLI: installation', url: 'https://docs.github.com/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli' },
   { name: 'Upgrade from ASP.NET MVC to ASP.NET Core', url: 'https://learn.microsoft.com/aspnet/core/migration/mvc' },
   { name: 'Azure Verified Modules', url: 'https://aka.ms/avm' },
+  { name: 'Python diagrams library: Azure nodes', url: 'https://diagrams.mingrammer.com/docs/nodes/azure' },
+  { name: `diagrams v${diagramsVersion} release notes (Azure icons V18)`, url: `https://github.com/mingrammer/diagrams/releases/tag/v${diagramsVersion}` },
+  { name: 'Azure architecture icons', url: 'https://learn.microsoft.com/azure/architecture/icons/' },
+  { name: 'HVE Squad troubleshooting: Azure-icon diagrams', url: `https://peter-n91.github.io/hve-squad/troubleshooting.html` },
   { name: 'Power Platform application lifecycle management', url: 'https://learn.microsoft.com/power-platform/alm/' },
   { name: 'Power Platform data loss prevention policies', url: 'https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention' },
   { name: 'Power Platform custom connectors', url: 'https://learn.microsoft.com/connectors/custom-connectors/' },

@@ -58,6 +58,13 @@ else
   row "Azure CLI" "Azure track" "OPTIONAL" "Install: brew install azure-cli"
 fi
 
+# uv and Graphviz - Azure track: the python-diagrams skill renders the HLD and LLD with the
+# Python diagrams library (0.25.1 or later, latest Azure icons). uv fetches the library on first use.
+if command -v uv >/dev/null 2>&1; then row "uv (diagrams 0.25.1+)" "Azure track" "OK" "$(first uv --version)"
+else row "uv (diagrams 0.25.1+)" "Azure track" "MISSING" "Install: brew install uv"; fi
+if command -v dot >/dev/null 2>&1; then row "Graphviz" "Azure track" "OK" "$(dot -V 2>&1 | head -n 1)"
+else row "Graphviz" "Azure track" "MISSING" "Install: brew install graphviz"; fi
+
 if command -v apm >/dev/null 2>&1; then
   v="$(first apm --version)"
   if echo "$v" | grep -q '0\.29\.0'; then row "APM CLI" "VS Code, Power Platform" "OK" "$v"

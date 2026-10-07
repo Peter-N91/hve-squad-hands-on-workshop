@@ -1,8 +1,8 @@
 import {
-  agenda, autopilotMode, lessons, lifecycleSteps, prerequisites, releaseFile, releaseTag, routingOptions, scopeOptions, suggestedSquads,
-  trackIds, trackTag, tracks,
+  agenda, autopilotMode, lessons, lifecycleSteps, prerequisites, releaseFile, releaseName, releaseTag, routingOptions, scopeOptions, suggestedSquads,
+  trackIds, trackModeOptions, trackTag, tracks,
 } from './content.ts'
-import type { Answer, Lesson, Prompt, Routing, Scope, SetupId, SquadKey, Track, TrackId } from './content.ts'
+import type { Answer, Lesson, Prompt, Routing, Scope, SetupId, SquadKey, Track, TrackId, TrackMode } from './content.ts'
 
 export const clients = ['app', 'cli', 'vscode'] as const
 export type Client = typeof clients[number]
@@ -13,14 +13,16 @@ export type PublicationField = typeof publicationFields[number]
 export const requiredPublicationFields: PublicationField[] = ['organization', 'project', 'participant', 'documentTarget']
 export const squadKeys: SquadKey[] = ['productSquad', 'migrationSquad', 'modernizationSquad', 'powerPlatformSquad']
 
-export type Settings = { experience: Client; routing: Routing; tracks: TrackId[]; scope: Scope } & Record<PublicationField, string> & Record<SquadKey, string>
+export type Settings = { experience: Client; routing: Routing; trackMode: TrackMode; tracks: TrackId[]; scope: Scope } & Record<PublicationField, string> & Record<SquadKey, string>
 export const routings = routingOptions.map(option => option.value)
 export const scopes = scopeOptions.map(option => option.value)
+export const trackModes = trackModeOptions.map(option => option.value)
 export type SavedState = { schema: 1; checked: string[]; settings: Settings }
 
 export const defaults: Settings = {
   experience: 'cli',
   routing: 'off',
+  trackMode: 'all',
   tracks: [...trackIds],
   scope: 'full',
   organization: '', project: '', participant: '', documentTarget: '', process: '', area: '', iteration: '',
@@ -49,6 +51,27 @@ export const visibleAnswers = (answers: Answer[] | undefined, settings: Pick<Set
 export function toggleTrack(current: TrackId[], id: TrackId): TrackId[] {
   const next = current.includes(id) ? current.filter(value => value !== id) : [...current, id]
   return next.length ? trackIds.filter(value => next.includes(value)) : current
+}
+
+type TrackChoice = Pick<Settings, 'trackMode' | 'tracks'>
+/** Keeps the tracks consistent with the mode: all tracks, exactly one, or any non-empty selection. */
+export function normalizeTracks(mode: TrackMode, tracks: TrackId[]): TrackChoice {
+  const ordered = trackIds.filter(id => tracks.includes(id))
+  if (mode === 'all') return { trackMode: mode, tracks: [...trackIds] }
+  if (mode === 'one') return { trackMode: mode, tracks: [ordered[0] ?? trackIds[0]] }
+  return { trackMode: mode, tracks: ordered.length ? ordered : [trackIds[0]] }
+}
+export const setTrackMode = (settings: TrackChoice, mode: TrackMode) => normalizeTracks(mode, settings.tracks)
+/** The track control: in "one" mode it selects that track; in "selected" mode it toggles it; in "all" mode nothing changes. */
+export function pickTrack(settings: TrackChoice, id: TrackId): TrackChoice {
+  if (settings.trackMode === 'one') return normalizeTracks('one', [id])
+  if (settings.trackMode === 'selected') return normalizeTracks('selected', toggleTrack(settings.tracks, id))
+  return normalizeTracks('all', settings.tracks)
+}
+/** Adds a hidden track from its placeholder page, switching to "selected" when needed. */
+export function addTrack(settings: TrackChoice, id: TrackId): TrackChoice {
+  const tracks = [...settings.tracks, id]
+  return normalizeTracks(trackIds.every(track => tracks.includes(track)) ? 'all' : 'selected', tracks)
 }
 
 function lessonIds(lesson: Lesson) {
@@ -128,6 +151,9 @@ export function decodeState(raw: string | null): SavedState {
     if (!Array.isArray(input.tracks) || !input.tracks.length || !input.tracks.every(isTrackId)) throw new Error('Saved progress names no delivery track or an unknown one.')
     settings.tracks = trackIds.filter(id => (input.tracks as TrackId[]).includes(id))
   }
+  if (input.trackMode !== undefined && !trackModes.includes(input.trackMode as TrackMode)) throw new Error('Saved progress names an unknown track choice.')
+  const mode = (input.trackMode as TrackMode | undefined) ?? (settings.tracks.length === trackIds.length ? 'all' : 'selected')
+  Object.assign(settings, normalizeTracks(mode, settings.tracks))
   if (input.scope !== undefined) {
     if (!scopes.includes(input.scope as Scope)) throw new Error('Saved progress names an unknown product scope.')
     settings.scope = input.scope as Scope
@@ -173,7 +199,7 @@ export function resolveConditions(text: string, settings: Pick<Settings, 'tracks
   return text.replace(conditional, (_, condition: string, body: string) => conditionHolds(condition, settings) ? body : '')
 }
 
-const joinList = (items: string[]) => items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`
+const joinList = (items: string[], last = 'and') => items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} ${last} ${items.at(-1)}`
 export function teamNames(settings: Settings) {
   return [settings.productSquad, ...chosenTracks(settings).map(track => settings[track.squadKey])].map(name => name.trim())
 }
@@ -187,8 +213,9 @@ export function fillNames(text: string, settings: Settings) {
       case 'trackList': return joinList(chosen.map(track => track.label))
       case 'areaList': return joinList(chosen.map(track => `${track.area} (${track.areaName})`))
       case 'teamList': return joinList(teamNames(settings).map(name => JSON.stringify(name)))
-      case 'releaseTags': return joinList(chosen.map(releaseTag))
-      case 'releaseList': return chosen.map(track => `\n- ${track.label}: items tagged ${trackTag(track)}, described in ${releaseFile(track)}, Git tag ${releaseTag(track)}`).join('')
+      case 'releaseNames': return joinList(chosen.map(track => releaseName(track)), 'or')
+      case 'releaseTags': return joinList(chosen.map(track => releaseTag(track)))
+      case 'releaseList': return chosen.map(track => `\n- ${track.label}: track tag ${trackTag(track)}; release tags ${releaseName(track, 1)}, ${releaseName(track, 2)} and so on; release files ${releaseFile(track, '<n>')}; Git tags ${releaseTag(track, '<n>')}`).join('')
       default: return match
     }
   })
