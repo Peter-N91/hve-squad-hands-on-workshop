@@ -3,8 +3,8 @@
 > Fictitious standards for the HVE Squad hands-on workshop. They show how a delivery practice
 > can hand its own conventions to a squad. Edit them to match your practice.
 
-These standards apply to every team working in this repository: product, cloud and
-application teams. Identifiers (for example `ES-07`) let reviews cite them.
+These standards apply to every team working in this repository: product, cloud, application
+and low-code teams. Identifiers (for example `ES-07`) let reviews cite them.
 
 ## 1. Writing for people
 
@@ -15,18 +15,20 @@ application teams. Identifiers (for example `ES-07`) let reviews cite them.
 | ES-03 | Anything that is not stated in `knowledge-docs` is marked **ASSUMPTION:** and listed in an assumptions table with an owner who can confirm it. Never present an assumption as a requirement. |
 | ES-04 | Unanswered questions are marked **OPEN:** and listed with the person who can answer them (see stakeholders in `business-case.md`). |
 | ES-05 | User stories use the form *As a … I want … so that …* followed by acceptance criteria in *Given / When / Then* form. A developer who has not read the business case must be able to build the story from its text alone. |
-| ES-06 | Produce a traceability table that maps every `BR-` and `NFR-` identifier to the stories that cover it, and lists any identifier that is not covered. |
+| ES-06 | Produce a traceability table that maps every `BR-` and `NFR-` identifier in scope to the stories that cover it, and lists any identifier in scope that is not covered. The scope is the set of business areas (`BA-`) you were asked to cover; list the other areas as out of scope. |
 
 ## 2. Where things go
 
 | ID | Content | Location |
 |---|---|---|
-| ES-07 | Product documents (business requirements, product requirements, experiment design, backlog, traceability) | `docs/product/` |
+| ES-07 | Product documents (business requirements, product requirements, experiment design, backlog, traceability) and one release file per delivery track | `docs/product/`, releases in `docs/product/releases/` |
 | ES-08 | Architecture (high-level and low-level design, decision records, diagrams) | `docs/architecture/` |
 | ES-09 | Migration plan, cost estimate, runbooks | `docs/migration/` |
 | ES-10 | Infrastructure as code | `infra/` |
 | ES-11 | Modernization notes (what changed, why, how it was tested) | `docs/modernization/` |
 | ES-12 | Application source code | `src/` — keep the existing solution `src/Northwind.OrderDesk.sln`. |
+| ES-32 | Power Platform design (solution design, Dataverse model, flows, environments, licensing) | `docs/power-platform/` |
+| ES-33 | Power Platform source: custom connector definitions and solution files | `powerplatform/` |
 
 ## 3. .NET
 
@@ -59,3 +61,19 @@ application teams. Identifiers (for example `ES-07`) let reviews cite them.
 |---|---|
 | ES-28 | Work items created during the workshop carry the tag `nw-workshop` and the participant prefix agreed with the facilitator. |
 | ES-29 | Every work item links back to its source identifiers (`BR-`, `NFR-`) in its description. |
+
+## 6. Delivery tracks and releases
+
+| ID | Standard |
+|---|---|
+| ES-30 | Every epic, feature and story carries exactly **one** track tag naming the team that delivers it: `track-azure` (BA-01), `track-dotnet` (BA-02) or `track-power-platform` (BA-03). A story that needs two tracks is split into one story per track. A new delivery track gets a new tag of the same form. |
+| ES-31 | Each track's first release is described in `docs/product/releases/<track>-r1.md` (for example `azure-r1.md`): its stories, the `BR-` and `NFR-` identifiers it covers, what it leaves out, and its dependencies on other tracks as **OPEN:** items. A release never waits for another track. Once the product owner approves a release, the commit that holds it is tagged in Git as `product/<track>-r1` (for example `product/azure-r1`). |
+
+## 7. Power Platform
+
+| ID | Standard |
+|---|---|
+| ES-34 | One solution, `NorthwindClaims`, with the publisher prefix `nw`. Every app, flow, table and connector lives inside it. Solutions are unmanaged only in development and **managed** in test and production. |
+| ES-35 | Dedicated development, test and production environments in the **Europe** region (`NFR-03`). Nothing is built in the default environment. A data loss prevention (DLP) policy allows only the connectors the solution needs. |
+| ES-36 | Apps and flows never connect directly to the Order Desk database. They reach Order Desk through an API exposed as a custom connector (OpenAPI 2.0). Every connection uses a connection reference, and every endpoint or setting an environment variable. |
+| ES-37 | Nothing is created, imported or changed in a real Power Platform environment or tenant from this workshop. Designs and connector definitions are reviewed and validated locally. |

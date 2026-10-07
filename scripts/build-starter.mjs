@@ -2,10 +2,13 @@
 //   public/starter/manifest.json  - read by the browser to write files into a chosen folder
 //   public/starter/<folder>.zip   - fallback download for browsers without folder access
 // No dependencies: the zip uses the "stored" method with CRC-32 checksums.
+// {{HVE_SQUAD_VERSION}} and {{HVE_SQUAD_MINOR}} in starter files become the release in
+// src/hve-squad-release.ts, so the readiness check always expects the release the guide targets.
 import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readCommittedRelease } from './hve-squad-release.mjs'
 
 export const starterFolder = 'northwind-workshop'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -17,7 +20,12 @@ export function normalize(path, text) {
   return crlf.test(path) ? lf.replace(/\n/g, '\r\n') : lf
 }
 
+export function applyRelease(text, version) {
+  return text.replaceAll('{{HVE_SQUAD_VERSION}}', version).replaceAll('{{HVE_SQUAD_MINOR}}', version.split('.').slice(0, 2).join('.'))
+}
+
 export async function collectStarter(dir = join(root, 'starter')) {
+  const { version } = await readCommittedRelease()
   const files = []
   async function walk(current) {
     for (const entry of await readdir(current, { withFileTypes: true })) {
@@ -26,7 +34,7 @@ export async function collectStarter(dir = join(root, 'starter')) {
       if (entry.isDirectory()) await walk(full)
       else {
         const path = relative(dir, full).split(sep).join('/')
-        files.push({ path, content: normalize(path, await readFile(full, 'utf8')) })
+        files.push({ path, content: normalize(path, applyRelease(await readFile(full, 'utf8'), version)) })
       }
     }
   }

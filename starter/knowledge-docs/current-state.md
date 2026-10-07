@@ -2,8 +2,9 @@
 
 > Fictitious, synthetic inventory for the HVE Squad hands-on workshop.
 
-This document describes Order Desk as it runs today in the Lyon data centre. The source code
-is in `src/` and the database scripts are in `database/` at the root of this repository.
+This document describes Order Desk as it runs today in the Lyon data centre, and how delivery
+claims are handled today. The source code is in `src/` and the database scripts are in
+`database/` at the root of this repository.
 Items have stable identifiers (for example `CS-04`) so that designs and plans can cite them.
 
 ## 1. Application overview
@@ -56,3 +57,13 @@ complete list.
 | CS-21 | Planned maintenance window: Sunday 06:00–12:00 CET. |
 | CS-22 | Monitoring is limited to ping checks of the two servers and a weekly look at the Event Log. |
 | CS-23 | Last disaster-recovery test: never. Backups have been restored manually twice in five years. |
+
+## 6. Delivery claims today
+
+| ID | Fact |
+|---|---|
+| CS-24 | Claims are recorded in a shared spreadsheet, `\\NWFS01\customer-ops\claims.xlsx`: about 9,400 rows since January 2023, edited by up to 10 people at once. Conflicting copies appear every week. |
+| CS-25 | Finance receives credit-note requests by e-mail and keys them into the finance system, which has **no API**. The finance system can import a CSV file placed in `\\NWFS01\finance-import\` before 18:00 on working days. |
+| CS-26 | Power Platform today: only the **default environment** exists. Staff have built 23 personal apps and flows in it. No data loss prevention (DLP) policy is configured. The Microsoft 365 tenant's data location is Europe. |
+| CS-27 | The order lines a claim refers to live in `NorthwindOrders` on `NWSQL01` (CS-07), reachable only from the Lyon network (CS-09). Order Desk has **no API**: other systems exchange files with it or read its database directly. |
+| CS-28 | The 8 warehouse supervisors in Antwerp use StockPilot and have Microsoft Entra ID accounts with Microsoft 365 E3 licences. |

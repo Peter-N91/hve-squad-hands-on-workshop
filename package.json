@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "starter": "node scripts/build-starter.mjs",
+    "release": "node scripts/hve-squad-release.mjs",
+    "starter": "npm run release && node scripts/build-starter.mjs",
     "predev": "npm run starter",
     "dev": "vite",
     "prebuild": "npm run starter",

@@ -1,6 +1,13 @@
 name: Publish workshop guide
+# Manual, daily, or on a repository_dispatch from hve-squad when it publishes a release.
+# Every build asks GitHub for the latest stable HVE Squad release (scripts/hve-squad-release.mjs),
+# so the published guide always names, installs and links that release.
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '17 5 * * *'
+  repository_dispatch:
+    types: [hve-squad-release]
 permissions:
   contents: read
 concurrency:
@@ -9,6 +16,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,6 +25,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - run: npm run release
       - run: npm run lint
       - run: npm test
       - run: npm run build

@@ -43,8 +43,8 @@ if ($copilot) {
     $hasSquad = $plugins -match 'hve-squad@hve-squad-plugin'
     $hasCore = $plugins -match 'hve-squad-hve-core@hve-squad-plugin'
     if ($hasSquad -and $hasCore) {
-        if ($squadMatch.Success -and $squadMatch.Groups[1].Value -notlike '0.18.*') {
-            Add-Result 'HVE Squad plugin pair' 'CLI client only' 'WRONG VERSION' "hve-squad v$($squadMatch.Groups[1].Value) - the guide is built for 0.18.0. Update: see guide, Part 00, step 3"
+        if ($squadMatch.Success -and $squadMatch.Groups[1].Value -notlike '{{HVE_SQUAD_MINOR}}.*') {
+            Add-Result 'HVE Squad plugin pair' 'CLI client only' 'WRONG VERSION' "hve-squad v$($squadMatch.Groups[1].Value) - the guide is built for {{HVE_SQUAD_VERSION}}. Update: see guide, Part 00, step 3"
         } else {
             Add-Result 'HVE Squad plugin pair' 'CLI client only' 'OK' "hve-squad v$($squadMatch.Groups[1].Value) + hve-squad-hve-core installed"
         }
@@ -62,42 +62,42 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
     else { Add-Result 'PowerShell 7+' 'All parts' 'MISSING' 'The Scribe ledger and model routing need it: winget install --id Microsoft.PowerShell -e' }
 }
 
-# .NET 10 SDK - Part 05
+# .NET 10 SDK - .NET track (Part 06)
 $sdks = (& dotnet --list-sdks 2>$null | Out-String)
-if ($sdks -match '(?m)^10\.') { Add-Result '.NET 10 SDK' 'Part 05' 'OK' (($sdks -split "`n" | Where-Object { $_ -match '^10\.' } | Select-Object -Last 1).Trim()) }
-else { Add-Result '.NET 10 SDK' 'Part 05' 'MISSING' 'Install: winget install --id Microsoft.DotNet.SDK.10 -e' }
+if ($sdks -match '(?m)^10\.') { Add-Result '.NET 10 SDK' '.NET track' 'OK' (($sdks -split "`n" | Where-Object { $_ -match '^10\.' } | Select-Object -Last 1).Trim()) }
+else { Add-Result '.NET 10 SDK' '.NET track' 'MISSING' 'Install: winget install --id Microsoft.DotNet.SDK.10 -e' }
 
-# Azure CLI with Bicep - Part 04 (local validation only, no sign-in needed)
+# Azure CLI with Bicep - Azure track (Part 05; local validation only, no sign-in needed)
 $az = $null
 try {
     $azJson = @(& az version -o json 2>$null)
     if ($LASTEXITCODE -eq 0) { $az = (($azJson -join "`n") | ConvertFrom-Json).'azure-cli' }
 } catch { }
 if ($az) {
-    Add-Result 'Azure CLI' 'Part 04 (validation)' 'OK' "azure-cli $az"
+    Add-Result 'Azure CLI' 'Azure track' 'OK' "azure-cli $az"
     $bicep = $null
     try {
         $bicepOut = @(& az bicep version 2>$null)
         if ($LASTEXITCODE -eq 0) { $bicep = $bicepOut | Where-Object { $_ -match 'Bicep CLI version' } | Select-Object -First 1 }
     } catch { }
-    if ($bicep) { Add-Result 'Bicep' 'Part 04 (validation)' 'OK' $bicep }
-    else { Add-Result 'Bicep' 'Part 04 (validation)' 'MISSING' 'Run: az bicep install' }
+    if ($bicep) { Add-Result 'Bicep' 'Azure track' 'OK' $bicep }
+    else { Add-Result 'Bicep' 'Azure track' 'MISSING' 'Run: az bicep install' }
 } else {
-    Add-Result 'Azure CLI' 'Part 04 (validation)' 'OPTIONAL' 'Install: winget install --id Microsoft.AzureCLI -e'
+    Add-Result 'Azure CLI' 'Azure track' 'OPTIONAL' 'Install: winget install --id Microsoft.AzureCLI -e'
 }
 
-# APM CLI - only for the VS Code path
+# APM CLI - the VS Code client, and the Power Platform track's specialists (Part 07)
 $apm = Get-FirstLine 'apm' @('--version')
 if ($apm) {
-    if ($apm -match '0\.29\.0') { Add-Result 'APM CLI' 'VS Code client only' 'OK' $apm }
-    else { Add-Result 'APM CLI' 'VS Code client only' 'WRONG VERSION' "$apm - the workshop needs exactly 0.29.0" }
+    if ($apm -match '0\.29\.0') { Add-Result 'APM CLI' 'VS Code, Power Platform' 'OK' $apm }
+    else { Add-Result 'APM CLI' 'VS Code, Power Platform' 'WRONG VERSION' "$apm - the workshop needs exactly 0.29.0" }
 } else {
-    Add-Result 'APM CLI' 'VS Code client only' 'NOT FOUND' 'Skip if you use the Copilot App or CLI'
+    Add-Result 'APM CLI' 'VS Code, Power Platform' 'NOT FOUND' 'Needed for VS Code, or to install the Power Platform specialists. Otherwise skip'
 }
 
 $results | Format-Table -AutoSize -Wrap
 
-# Prepare Git for this folder. Part 05 compares the tests with the tag "starter".
+# Prepare Git for this folder. The .NET track compares the tests with the tag "starter".
 function Invoke-StarterCommit {
     $identity = @('-c', 'commit.gpgsign=false')
     if (-not (git config user.email)) { $identity += @('-c', 'user.name=Northwind Workshop', '-c', 'user.email=workshop@northwind.example') }

@@ -35,8 +35,8 @@ if command -v copilot >/dev/null 2>&1; then
   if [ $squad -eq 1 ] && [ $core -eq 1 ]; then
     version="$(echo "$plugins" | sed -n 's/.*hve-squad@hve-squad-plugin *(v\{0,1\}\([0-9][0-9.]*\)).*/\1/p' | head -n 1)"
     case "$version" in
-      ''|0.18.*) row "HVE Squad plugin pair" "CLI client only" "OK" "hve-squad v$version + hve-squad-hve-core installed" ;;
-      *) row "HVE Squad plugin pair" "CLI client only" "WRONG VERSION" "hve-squad v$version - the guide is built for 0.18.0 (Part 00, step 3)" ;;
+      ''|{{HVE_SQUAD_MINOR}}.*) row "HVE Squad plugin pair" "CLI client only" "OK" "hve-squad v$version + hve-squad-hve-core installed" ;;
+      *) row "HVE Squad plugin pair" "CLI client only" "WRONG VERSION" "hve-squad v$version - the guide is built for {{HVE_SQUAD_VERSION}} (Part 00, step 3)" ;;
     esac
   elif [ $squad -eq 1 ] || [ $core -eq 1 ]; then row "HVE Squad plugin pair" "CLI client only" "INCOMPLETE" "Install both entries (guide, Part 00)"
   else row "HVE Squad plugin pair" "CLI client only" "MISSING" "See guide, Part 00, step 3"; fi
@@ -45,29 +45,29 @@ else
 fi
 
 if command -v dotnet >/dev/null 2>&1 && dotnet --list-sdks 2>/dev/null | grep -q '^10\.'; then
-  row ".NET 10 SDK" "Part 05" "OK" "$(dotnet --list-sdks | grep '^10\.' | tail -n 1)"
+  row ".NET 10 SDK" ".NET track" "OK" "$(dotnet --list-sdks | grep '^10\.' | tail -n 1)"
 else
-  row ".NET 10 SDK" "Part 05" "MISSING" "Install: brew install --cask dotnet-sdk"
+  row ".NET 10 SDK" ".NET track" "MISSING" "Install: brew install --cask dotnet-sdk"
 fi
 
 if command -v az >/dev/null 2>&1; then
-  row "Azure CLI" "Part 04 (validation)" "OK" "azure-cli $(az version --query '"azure-cli"' -o tsv 2>/dev/null)"
-  if az bicep version >/dev/null 2>&1; then row "Bicep" "Part 04 (validation)" "OK" "$(az bicep version 2>/dev/null | grep 'Bicep CLI version' | head -n 1)"
-  else row "Bicep" "Part 04 (validation)" "MISSING" "Run: az bicep install"; fi
+  row "Azure CLI" "Azure track" "OK" "azure-cli $(az version --query '"azure-cli"' -o tsv 2>/dev/null)"
+  if az bicep version >/dev/null 2>&1; then row "Bicep" "Azure track" "OK" "$(az bicep version 2>/dev/null | grep 'Bicep CLI version' | head -n 1)"
+  else row "Bicep" "Azure track" "MISSING" "Run: az bicep install"; fi
 else
-  row "Azure CLI" "Part 04 (validation)" "OPTIONAL" "Install: brew install azure-cli"
+  row "Azure CLI" "Azure track" "OPTIONAL" "Install: brew install azure-cli"
 fi
 
 if command -v apm >/dev/null 2>&1; then
   v="$(first apm --version)"
-  if echo "$v" | grep -q '0\.29\.0'; then row "APM CLI" "VS Code client only" "OK" "$v"
-  else row "APM CLI" "VS Code client only" "WRONG VERSION" "$v - the workshop needs exactly 0.29.0"; fi
+  if echo "$v" | grep -q '0\.29\.0'; then row "APM CLI" "VS Code, Power Platform" "OK" "$v"
+  else row "APM CLI" "VS Code, Power Platform" "WRONG VERSION" "$v - the workshop needs exactly 0.29.0"; fi
 else
-  row "APM CLI" "VS Code client only" "NOT FOUND" "Skip if you use the Copilot App or CLI"
+  row "APM CLI" "VS Code, Power Platform" "NOT FOUND" "Needed for VS Code, or to install the Power Platform specialists. Otherwise skip"
 fi
 
 echo
-# Part 05 compares the tests with the tag "starter".
+# The .NET track compares the tests with the tag "starter".
 starter_commit() {
   identity=(-c commit.gpgsign=false)
   if [ -z "$(git config user.email 2>/dev/null)" ]; then identity+=(-c "user.name=Northwind Workshop" -c "user.email=workshop@northwind.example"); fi

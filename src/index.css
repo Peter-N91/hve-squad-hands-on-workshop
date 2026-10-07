@@ -159,7 +159,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .section-heading h2 { margin: 0; font-size: 22px; }
 .badge { font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--border-strong); border-radius: 4px; padding: 3px 7px; color: var(--subtle); white-space: nowrap; }
 
-.journey { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.journey { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 .journey > div { border: 1px solid var(--border); border-radius: 10px; padding: 16px; background: var(--bg); position: relative; }
 .journey > div.optional { border-style: dashed; }
 .journey span { font: 12px var(--mono); color: var(--accent); display: block; margin-bottom: 8px; }
@@ -295,11 +295,30 @@ footer { border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; ju
 .skip-link { position: fixed; top: -100px; left: 20px; z-index: 30; padding: 12px; background: var(--surface); }
 .skip-link:focus { top: 12px; }
 
+.release-chip { display: block; font: 11px var(--mono); color: var(--muted); margin-top: 8px; }
+.journey > div.track-card { border-color: var(--accent); }
+.track-picker { margin: 20px 0; }
+.track-picker h2 { margin-top: 4px; }
+.track-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 8px 0 16px; }
+.track-option { display: flex; gap: 10px; align-items: flex-start; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); cursor: pointer; color: var(--muted); }
+.track-option.on { border: 2px solid var(--accent); background: var(--accent-soft); }
+.track-option input { accent-color: var(--accent); margin: 4px 0 0; width: 17px; height: 17px; flex-shrink: 0; }
+.track-option input:disabled { cursor: not-allowed; }
+.track-option > span { display: flex; flex-direction: column; gap: 4px; }
+.track-option strong { color: var(--heading); font-family: var(--display); font-size: 16px; }
+.track-option small { font: 12px var(--mono); color: var(--subtle); }
+.track-option em { font-style: normal; font-size: 14px; line-height: 1.5; }
+.track-option code { font-size: 12px; width: fit-content; }
+.track-picker.compact h2 { font-size: 16px; }
+.track-picker.compact .track-options { margin-bottom: 12px; }
+.scope-picker { margin-bottom: 8px; }
+.hidden-part { padding: 12px 0 24px; }
 @media (max-width: 1150px) {
   .layout { grid-template-columns: 240px minmax(0, 1fr); }
   .main-content { padding: 20px 28px 0; }
   .overview-grid, .checkpoint-grid, .rule-grid { grid-template-columns: 1fr; }
   .journey { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .track-options { grid-template-columns: 1fr; }
   .review-key ol { grid-template-columns: 1fr; }
   .routing-options { grid-template-columns: 1fr; }
   .feedback-note ul { columns: 1; }

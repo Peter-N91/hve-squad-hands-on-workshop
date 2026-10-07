@@ -1,5 +1,8 @@
-import { autopilotMode, lessons, lifecycleSteps, routingOptions, suggestedSquads } from './content.ts'
-import type { Prompt, Routing, SetupId, SquadKey } from './content.ts'
+import {
+  agenda, autopilotMode, lessons, lifecycleSteps, prerequisites, releaseFile, releaseTag, routingOptions, scopeOptions, suggestedSquads,
+  trackIds, trackTag, tracks,
+} from './content.ts'
+import type { Answer, Lesson, Prompt, Routing, Scope, SetupId, SquadKey, Track, TrackId } from './content.ts'
 
 export const clients = ['app', 'cli', 'vscode'] as const
 export type Client = typeof clients[number]
@@ -8,15 +11,18 @@ export const clientLabels: Record<Client, string> = { app: 'Copilot App', cli: '
 export const publicationFields = ['organization', 'project', 'participant', 'documentTarget', 'process', 'area', 'iteration'] as const
 export type PublicationField = typeof publicationFields[number]
 export const requiredPublicationFields: PublicationField[] = ['organization', 'project', 'participant', 'documentTarget']
-export const squadKeys: SquadKey[] = ['productSquad', 'migrationSquad', 'modernizationSquad']
+export const squadKeys: SquadKey[] = ['productSquad', 'migrationSquad', 'modernizationSquad', 'powerPlatformSquad']
 
-export type Settings = { experience: Client; routing: Routing } & Record<PublicationField, string> & Record<SquadKey, string>
+export type Settings = { experience: Client; routing: Routing; tracks: TrackId[]; scope: Scope } & Record<PublicationField, string> & Record<SquadKey, string>
 export const routings = routingOptions.map(option => option.value)
+export const scopes = scopeOptions.map(option => option.value)
 export type SavedState = { schema: 1; checked: string[]; settings: Settings }
 
 export const defaults: Settings = {
   experience: 'cli',
   routing: 'off',
+  tracks: [...trackIds],
+  scope: 'full',
   organization: '', project: '', participant: '', documentTarget: '', process: '', area: '', iteration: '',
   ...suggestedSquads,
 }
@@ -26,21 +32,48 @@ export const themeKey = 'hve-squad-hands-on-theme'
 export const setupCheckId = (id: SetupId) => `setup:${id}`
 export const lessonCheckId = (lessonId: string, index: number) => `${lessonId}-${index}`
 
-export const allCheckIds = [
-  ...lessons.flatMap(lesson => lesson.checks.map((_, index) => lessonCheckId(lesson.id, index))),
-  ...lifecycleSteps.map(step => setupCheckId(step.id)),
-]
-const optionalLessons = new Set(lessons.filter(lesson => lesson.optional).map(lesson => lesson.id))
-export const coreCheckIds = allCheckIds.filter(id => !optionalLessons.has(id.slice(0, id.lastIndexOf('-'))))
-export const optionalCheckIds = allCheckIds.filter(id => !coreCheckIds.includes(id))
+const isTrackId = (value: unknown): value is TrackId => trackIds.includes(value as TrackId)
+export const chosenTracks = (settings: Pick<Settings, 'tracks'>): Track[] => tracks.filter(track => settings.tracks.includes(track.id))
+export const lessonVisible = (lesson: Pick<Lesson, 'track'>, settings: Pick<Settings, 'tracks'>) => !lesson.track || settings.tracks.includes(lesson.track)
+export const visibleLessons = (settings: Pick<Settings, 'tracks'>) => lessons.filter(lesson => lessonVisible(lesson, settings))
+export const visibleAgenda = (settings: Pick<Settings, 'tracks'>) => agenda.filter(item => {
+  const lesson = lessons.find(candidate => candidate.id === item.lesson)
+  return !lesson || lessonVisible(lesson, settings)
+})
+export const visiblePrerequisites = (settings: Pick<Settings, 'tracks'>) => prerequisites.filter(item => !item.track || settings.tracks.includes(item.track))
+/** With the whole case in scope the intake may ask about any area, so every answer stays visible. */
+export const visibleAnswers = (answers: Answer[] | undefined, settings: Pick<Settings, 'tracks' | 'scope'>) =>
+  (answers ?? []).filter(answer => settings.scope === 'full' || answer.tracks.some(track => settings.tracks.includes(track)))
 
-export function progress(checked: string[]) {
-  const core = coreCheckIds.filter(id => checked.includes(id)).length
-  const optional = optionalCheckIds.filter(id => checked.includes(id)).length
-  return { core, coreTotal: coreCheckIds.length, optional, optionalTotal: optionalCheckIds.length, percent: Math.round(core / coreCheckIds.length * 100) }
+/** Chosen tracks in registry order. The last track cannot be removed: the product needs at least one release. */
+export function toggleTrack(current: TrackId[], id: TrackId): TrackId[] {
+  const next = current.includes(id) ? current.filter(value => value !== id) : [...current, id]
+  return next.length ? trackIds.filter(value => next.includes(value)) : current
 }
 
-export function missingSetup(prompt: Pick<Prompt, 'requiresSetup'>, checked: string[]) {
+function lessonIds(lesson: Lesson) {
+  return [...lesson.checks.map((_, index) => lessonCheckId(lesson.id, index)), ...(lesson.setup ?? []).map(step => setupCheckId(step.id))]
+}
+export function checkIds(settings: Pick<Settings, 'tracks'> = defaults) {
+  const visible = visibleLessons(settings)
+  return {
+    core: visible.filter(lesson => !lesson.optional).flatMap(lessonIds),
+    optional: visible.filter(lesson => lesson.optional).flatMap(lessonIds),
+  }
+}
+export const allCheckIds = lessons.flatMap(lessonIds)
+export const coreCheckIds = checkIds().core
+export const optionalCheckIds = checkIds().optional
+
+export function progress(checked: string[], settings: Pick<Settings, 'tracks'> = defaults) {
+  const ids = checkIds(settings)
+  const core = ids.core.filter(id => checked.includes(id)).length
+  const optional = ids.optional.filter(id => checked.includes(id)).length
+  return { core, coreTotal: ids.core.length, optional, optionalTotal: ids.optional.length, percent: Math.round(core / ids.core.length * 100) }
+}
+
+/** Setup steps still to confirm before a prompt, in order. Steps of tracks not chosen are ignored. */
+export function missingSetup(prompt: Pick<Prompt, 'requiresSetup'>, checked: string[], settings: Pick<Settings, 'tracks'> = defaults) {
   const ordered: typeof lifecycleSteps = []
   const visited = new Set<SetupId>()
   function visit(id: SetupId, trail: SetupId[]) {
@@ -52,7 +85,12 @@ export function missingSetup(prompt: Pick<Prompt, 'requiresSetup'>, checked: str
     visited.add(id)
     ordered.push(step)
   }
-  for (const id of prompt.requiresSetup ?? []) visit(id, [])
+  const relevant = (prompt.requiresSetup ?? []).filter(id => {
+    const step = lifecycleSteps.find(candidate => candidate.id === id)
+    const lesson = lessons.find(candidate => candidate.id === step?.lessonId)
+    return !lesson || lessonVisible(lesson, settings)
+  })
+  for (const id of relevant) visit(id, [])
   return ordered.filter(step => !checked.includes(setupCheckId(step.id)))
 }
 
@@ -69,7 +107,7 @@ export function toggleCheck(id: string, current: string[]) {
 }
 
 export function decodeState(raw: string | null): SavedState {
-  if (!raw) return { schema: 1, checked: [], settings: { ...defaults } }
+  if (!raw) return { schema: 1, checked: [], settings: { ...defaults, tracks: [...defaults.tracks] } }
   let parsed: unknown
   try { parsed = JSON.parse(raw) } catch { throw new Error('Saved progress is not valid JSON.') }
   if (!parsed || typeof parsed !== 'object' || (parsed as { schema?: unknown }).schema !== 1) {
@@ -81,10 +119,18 @@ export function decodeState(raw: string | null): SavedState {
   }
   const input = data.settings as Record<string, unknown>
   if (!clients.includes(input.experience as Client)) throw new Error('Saved progress names an unknown Copilot client.')
-  const settings: Settings = { ...defaults, experience: input.experience as Client }
+  const settings: Settings = { ...defaults, tracks: [...defaults.tracks], experience: input.experience as Client }
   if (input.routing !== undefined) {
     if (!routings.includes(input.routing as Routing)) throw new Error('Saved progress names an unknown model routing.')
     settings.routing = input.routing as Routing
+  }
+  if (input.tracks !== undefined) {
+    if (!Array.isArray(input.tracks) || !input.tracks.length || !input.tracks.every(isTrackId)) throw new Error('Saved progress names no delivery track or an unknown one.')
+    settings.tracks = trackIds.filter(id => (input.tracks as TrackId[]).includes(id))
+  }
+  if (input.scope !== undefined) {
+    if (!scopes.includes(input.scope as Scope)) throw new Error('Saved progress names an unknown product scope.')
+    settings.scope = input.scope as Scope
   }
   for (const key of [...publicationFields, ...squadKeys]) {
     if (input[key] === undefined) continue
@@ -114,18 +160,64 @@ export function checkLabel(id: string) {
   return { lesson, text }
 }
 
+function conditionHolds(condition: string, settings: Pick<Settings, 'tracks' | 'scope'>) {
+  const holds = (token: string) => {
+    if (scopes.includes(token as Scope)) return settings.scope === token
+    if (isTrackId(token)) return settings.tracks.includes(token)
+    throw new Error(`Unknown text condition: ${token}.`)
+  }
+  return condition.includes('+') ? condition.split('+').every(holds) : condition.split('|').some(holds)
+}
+const conditional = /\[\[([A-Za-z|+]+):([\s\S]*?)\]\]/g
+export function resolveConditions(text: string, settings: Pick<Settings, 'tracks' | 'scope'>) {
+  return text.replace(conditional, (_, condition: string, body: string) => conditionHolds(condition, settings) ? body : '')
+}
+
+const joinList = (items: string[]) => items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`
+export function teamNames(settings: Settings) {
+  return [settings.productSquad, ...chosenTracks(settings).map(track => settings[track.squadKey])].map(name => name.trim())
+}
+
+/** Resolves [[conditions]], then team names and the placeholders that describe the chosen tracks. */
+export function fillNames(text: string, settings: Settings) {
+  const chosen = chosenTracks(settings)
+  return resolveConditions(text, settings).replace(/\{(\w+)\}/g, (match, key: string) => {
+    if (squadKeys.includes(key as SquadKey)) return settings[key as SquadKey].trim()
+    switch (key) {
+      case 'trackList': return joinList(chosen.map(track => track.label))
+      case 'areaList': return joinList(chosen.map(track => `${track.area} (${track.areaName})`))
+      case 'teamList': return joinList(teamNames(settings).map(name => JSON.stringify(name)))
+      case 'releaseTags': return joinList(chosen.map(releaseTag))
+      case 'releaseList': return chosen.map(track => `\n- ${track.label}: items tagged ${trackTag(track)}, described in ${releaseFile(track)}, Git tag ${releaseTag(track)}`).join('')
+      default: return match
+    }
+  })
+}
+
+export function referencedSquads(prompt: Pick<Prompt, 'text' | 'squadTarget'>, settings: Settings): SquadKey[] {
+  const text = resolveConditions(prompt.text, settings)
+  const keys = new Set(squadKeys.filter(key => text.includes(`{${key}}`)))
+  if (text.includes('{teamList}')) {
+    keys.add('productSquad')
+    for (const track of chosenTracks(settings)) keys.add(track.squadKey)
+  }
+  if (prompt.squadTarget) keys.add(prompt.squadTarget)
+  return squadKeys.filter(key => keys.has(key))
+}
+
 export function promptBlockers(prompt: Prompt, settings: Settings, checked: string[]) {
   const issues: string[] = []
-  for (const step of missingSetup(prompt, checked)) issues.push(`Confirm the setup step "${step.title}" first.`)
+  for (const step of missingSetup(prompt, checked, settings)) issues.push(`Confirm the setup step "${step.title}" first.`)
   for (const id of prompt.requiresChecks ?? []) {
     if (checked.includes(id)) continue
     const { lesson, text } = checkLabel(id)
-    issues.push(`Part ${lesson.number} checkpoint: "${text}"`)
+    issues.push(`Part ${lesson.number} checkpoint: "${fillNames(text, settings)}"`)
   }
-  const referenced = squadKeys.filter(key => prompt.text.includes(`{${key}}`) || prompt.squadTarget === key)
-  for (const key of referenced) {
-    const error = squadNameError(settings[key])
-    if (error) issues.push(`${squadLabels[key]}: ${error}`)
+  if (prompt.kind !== 'shell') {
+    for (const key of referencedSquads(prompt, settings)) {
+      const error = squadNameError(settings[key])
+      if (error) issues.push(`${squadLabels[key]}: ${error}`)
+    }
   }
   if (prompt.publication) {
     const missing = missingPublication(settings)
@@ -136,8 +228,9 @@ export function promptBlockers(prompt: Prompt, settings: Settings, checked: stri
 
 export const squadLabels: Record<SquadKey, string> = {
   productSquad: 'Product team name',
-  migrationSquad: 'Migration team name',
-  modernizationSquad: 'Modernization team name',
+  migrationSquad: 'Azure team name',
+  modernizationSquad: '.NET team name',
+  powerPlatformSquad: 'Power Platform team name',
 }
 export const publicationLabels: Record<PublicationField, string> = {
   organization: 'Azure DevOps organization',
@@ -147,10 +240,6 @@ export const publicationLabels: Record<PublicationField, string> = {
   process: 'Process',
   area: 'Area path',
   iteration: 'Iteration path',
-}
-
-export function fillNames(text: string, settings: Settings) {
-  return text.replace(/\{(productSquad|migrationSquad|modernizationSquad)\}/g, (_, key: SquadKey) => settings[key].trim())
 }
 
 export function renderPrompt(prompt: Prompt, settings: Settings = defaults): string {

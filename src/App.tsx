@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  agenda, apmCliReleaseUrl, apmCliVersion, docsUrl, installation, lessons, lifecycleSteps, modeRule, modelGuidance,
-  notNeeded, observationNote, prerequisites, pwshNote, routingNote, routingOptions, sources, squadVersion, troubleshooting,
+  apmCliReleaseUrl, apmCliVersion, docsUrl, installation, lessons, modeRule, modelGuidance,
+  notNeeded, observationNote, pwshNote, releaseTag, routingNote, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion,
+  trackNote, tracks, troubleshooting,
 } from './content'
 import type { Lesson, LessonStep, Prompt, SquadKey } from './content'
 import {
-  agentSelection, clientLabels, clients, decodeState, defaults, fillNames, lessonCheckId, missingSetup, nextClient, progress,
-  promptBlockers, publicationFields, publicationLabels, renderPrompt, setupCheckId, squadKeys, squadLabels, squadNameError,
-  storageKey, themeKey, toggleCheck,
+  agentSelection, chosenTracks, clientLabels, clients, decodeState, defaults, fillNames, lessonCheckId, missingSetup, nextClient, progress,
+  promptBlockers, publicationFields, publicationLabels, renderPrompt, setupCheckId, squadLabels, squadNameError,
+  storageKey, themeKey, toggleCheck, toggleTrack, visibleAgenda, visibleAnswers, visibleLessons, visiblePrerequisites,
 } from './state'
 import type { PublicationField, SavedState, Settings } from './state'
 import { canWriteFolders, downloadZip, getStarter, starterZipUrl } from './starter'
@@ -19,8 +20,9 @@ const kindLabels: Record<Prompt['kind'], string> = {
 }
 const fieldHelp: Record<PublicationField | SquadKey, string> = {
   productSquad: 'The name the product team receives at promotion (Part 04). Keep the suggestion unless the squad registers another.',
-  migrationSquad: 'Used in Part 04 to name the team and target its work request with squad="…".',
-  modernizationSquad: 'Used in Part 05 to name the team and target its work request with squad="…".',
+  migrationSquad: 'Azure track (Part 05): names the team and targets its work request with squad="…".',
+  modernizationSquad: '.NET track (Part 06): names the team and targets its work request with squad="…".',
+  powerPlatformSquad: 'Power Platform track (Part 07): names the team and targets its work request with squad="…".',
   organization: 'The part after dev.azure.com/ in your project URL. Not a token.',
   project: 'The Azure DevOps project the facilitator prepared.',
   participant: 'A short unique prefix for your work-item titles, e.g. "AB-".',
@@ -85,8 +87,13 @@ function App() {
 
   const settings = saved.settings
   const vscode = settings.experience === 'vscode'
-  const stats = progress(saved.checked)
-  const active = lessons.find(lesson => lesson.id === page)
+  const stats = progress(saved.checked, settings)
+  const visible = visibleLessons(settings)
+  const active = visible.find(lesson => lesson.id === page)
+  const hiddenLesson = active ? undefined : lessons.find(lesson => lesson.id === page)
+  const chosen = chosenTracks(settings)
+  const tx = (text: string) => fillNames(text, settings)
+  const txList = (items: string[]) => items.map(tx).filter(item => item.trim())
 
   function persist(next: SavedState) {
     setSaved(next)
@@ -135,6 +142,35 @@ function App() {
     </div>
   }
 
+  function trackPicker(context: string, compact = false) {
+    return <section className={compact ? 'track-picker compact' : 'panel track-picker'} aria-label={`Delivery tracks and product scope (${context})`}>
+      {!compact && <span className="eyebrow">Your choice · shapes the product request and this guide</span>}
+      <h2>{compact ? 'Delivery tracks · Parts 05–07' : 'Choose your delivery tracks'}</h2>
+      <div className="track-options" role="group" aria-label={`Delivery tracks (${context})`}>
+        {tracks.map(track => {
+          const on = settings.tracks.includes(track.id)
+          const last = on && settings.tracks.length === 1
+          const lesson = lessons.find(item => item.id === track.lessonId)
+          return <label key={track.id} className={on ? 'track-option on' : 'track-option'} title={last ? 'Keep at least one track: the product team needs a release to write.' : undefined}>
+            <input type="checkbox" checked={on} disabled={last} onChange={() => updateSetting('tracks', toggleTrack(settings.tracks, track.id))} />
+            <span><strong>{track.label}</strong><small>Part {lesson?.number} · {track.area} {track.areaName}</small>
+              {!compact && <em>{track.summary}</em>}
+              <code>{releaseTag(track)}</code></span>
+          </label>
+        })}
+      </div>
+      <div className="routing-picker scope-picker">
+        <span className="routing-label">Product scope</span>
+        <div className="segmented" role="radiogroup" aria-label={`Product scope (${context})`}>
+          {scopeOptions.map(option => <button type="button" role="radio" key={option.value} aria-checked={settings.scope === option.value}
+            title={option.detail} onClick={() => updateSetting('scope', option.value)}>{option.label}</button>)}
+        </div>
+        <span className="routing-summary">{scopeOptions.find(option => option.value === settings.scope)?.summary}</span>
+      </div>
+      {!compact && <p className="small">{scopeOptions.find(option => option.value === settings.scope)?.detail} {trackNote}</p>}
+    </section>
+  }
+
   function promptBlock(prompt: Prompt) {
     const blockers = promptBlockers(prompt, settings, saved.checked)
     let text: string
@@ -165,8 +201,8 @@ function App() {
       {blockers.length > 0 && <div className="prompt-warning" role="note">
         Copy unlocks when:
         <ul>{blockers.map(item => <li key={item}>{item}</li>)}</ul>
-        {missingSetup(prompt, saved.checked).slice(0, 1).map(step => <a key={step.id} href={`#${step.lessonId}`}>Go to “{step.title}”</a>)}
-        {missingSetup(prompt, saved.checked).length === 0 && (prompt.requiresChecks ?? []).filter(id => !saved.checked.includes(id)).slice(0, 1).map(id => <a key={id} href={`#${id.slice(0, id.lastIndexOf('-'))}`}>Go to that checkpoint</a>)}
+        {missingSetup(prompt, saved.checked, settings).slice(0, 1).map(step => <a key={step.id} href={`#${step.lessonId}`}>Go to “{step.title}”</a>)}
+        {missingSetup(prompt, saved.checked, settings).length === 0 && (prompt.requiresChecks ?? []).filter(id => !saved.checked.includes(id)).slice(0, 1).map(id => <a key={id} href={`#${id.slice(0, id.lastIndexOf('-'))}`}>Go to that checkpoint</a>)}
         {needsSettings && <button type="button" onClick={() => { setSetupOpen(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Open Session setup</button>}
       </div>}
     </div>
@@ -174,13 +210,13 @@ function App() {
   function exercise(step: LessonStep, index: number) {
     return <div className="exercise" key={step.title}>
       <div className="step-index">{String(index + 1).padStart(2, '0')}</div>
-      <div><h2>{step.title}</h2><p>{step.body}</p>{step.prompt && promptBlock(step.prompt)}</div>
+      <div><h2>{step.title}</h2><p>{tx(step.body)}</p>{step.prompt && promptBlock(step.prompt)}</div>
     </div>
   }
   const starterPanel = (heading = 'Get the starter solution') => <section className="starter-panel" aria-label="Starter solution">
     <div>
       <h2>{heading}</h2>
-      <p>One click gives you the complete Northwind workshop folder: the business case, the engineering standards, the legacy .NET Framework 4.8 Order Desk with its 28 tests, the database scripts and a readiness check. {canWriteFolders() ? 'You choose where it goes on your computer.' : 'Your browser will download it as a zip file.'}</p>
+      <p>One click gives you the complete Northwind workshop folder: the business case with its three business areas, the engineering standards, the legacy .NET Framework 4.8 Order Desk with its 28 tests, the database scripts and a readiness check. {canWriteFolders() ? 'You choose where it goes on your computer.' : 'Your browser will download it as a zip file.'}</p>
       {starterMessage && <p className="starter-result" role="status">{starterMessage}</p>}
       {canWriteFolders() && <p className="small">Prefer a zip? <a href={starterZipUrl()} download onClick={event => { event.preventDefault(); downloadZip() }}>Download northwind-workshop.zip</a></p>}
     </div>
@@ -191,6 +227,7 @@ function App() {
     return <section className="panel" aria-label="Install HVE Squad">
       <span className="eyebrow">Step 3 · {clientLabels[settings.experience]}</span>
       <h2>Install HVE Squad {squadVersion}</h2>
+      <p className="small">The guide always targets the latest HVE Squad release: <a href={squadReleaseUrl} target="_blank" rel="noreferrer">v{squadVersion} release notes</a>.</p>
       {settings.experience === 'cli' && <>
         <p>Run these in any terminal. The pair must be installed together; do not also install the official hve-core plugin. <code>copilot plugin list</code> must show <code>hve-squad@hve-squad-plugin (v{squadVersion})</code>; the second entry shows HVE Core's own version, which is expected. Then start <code>copilot</code> inside the northwind-workshop folder and type <code>/agent</code>: you should see Squad Coordinator and Squad Federation Coordinator.</p>
         {promptBlock(installation.cli)}
@@ -235,15 +272,15 @@ function App() {
     return <article key={lesson.id} className={printOnly ? 'lesson print-only' : 'lesson'} aria-label={lesson.title}>
       <div className="eyebrow">{lesson.eyebrow}<span>/</span>{lesson.minutes ? `${lesson.minutes} min` : 'self-paced'}</div>
       <div className="lesson-title"><span className="big-number">{lesson.number}</span><h1>{lesson.title}</h1></div>
-      <p className="lead">{lesson.goal}</p>
+      <p className="lead">{tx(lesson.goal)}</p>
       {lesson.optional && <div className="optional-banner"><strong>Optional.</strong> Its checkpoints do not count toward your core progress, and nothing later depends on it.</div>}
-      <div className="concept"><strong>The idea</strong><p>{lesson.concept}</p></div>
+      <div className="concept"><strong>The idea</strong><p>{tx(lesson.concept)}</p></div>
       {lesson.id === 'prepare' && <>
         <section aria-label="Everything you need">
           <div className="section-heading"><h2>Everything you need, in one place</h2><span className="badge">Check once</span></div>
           <table className="prereq-table">
             <thead><tr><th>What</th><th>Why</th><th>When</th><th>Check</th><th className="os">Windows</th><th className="os">macOS</th></tr></thead>
-            <tbody>{prerequisites.map(item => <tr key={item.what}>
+            <tbody>{visiblePrerequisites(settings).map(item => <tr key={item.what}>
               <td><strong>{item.what}</strong></td>
               <td>{item.why}</td>
               <td><span className={`scope ${item.scope}`}>{item.part}</span></td>
@@ -259,6 +296,7 @@ function App() {
         {starterPanel('Step 1 · Get the starter solution')}
       </>}
       {lesson.id === 'orient' && <>
+        {trackPicker('Part 01')}
         <div className="rule-grid">
           <aside className="rule-box"><strong>{modeRule.title}</strong><p>{modeRule.body}</p></aside>
           <aside className="rule-box"><strong>{modelGuidance.title}</strong><p>{modelGuidance.body}</p></aside>
@@ -272,44 +310,44 @@ function App() {
           <p className="small">{routingNote}</p>
         </section>
       </>}
-      <section className="inputs"><h2>Have these ready</h2><ul>{lesson.inputs.map(input => <li key={input}>{input}</li>)}</ul></section>
+      <section className="inputs"><h2>Have these ready</h2><ul>{txList(lesson.inputs).map(input => <li key={input}>{input}</li>)}</ul></section>
       {lesson.setup && <section aria-label="Setup">
         <div className="section-caption">Setup first · confirm · then the work request</div>
         {lesson.setup.map(step => <section className="lifecycle-step" key={step.id}>
           <h2>{step.title}</h2>
-          <p>{step.description}</p>
+          <p>{tx(step.description)}</p>
           {promptBlock(step.request)}
           <h3>What should happen</h3>
-          <ul>{step.expected.map(item => <li key={item}>{item}</li>)}</ul>
+          <ul>{txList(step.expected).map(item => <li key={item}>{item}</li>)}</ul>
           <label className="check-row setup-check">
-            <input type="checkbox" checked={saved.checked.includes(setupCheckId(step.id))} disabled={missingSetup(step.request, saved.checked).length > 0} onChange={() => toggle(setupCheckId(step.id))} />
-            <span>{step.checkpoint}</span>
+            <input type="checkbox" checked={saved.checked.includes(setupCheckId(step.id))} disabled={missingSetup(step.request, saved.checked, settings).length > 0} onChange={() => toggle(setupCheckId(step.id))} />
+            <span>{tx(step.checkpoint)}</span>
           </label>
         </section>)}
       </section>}
       {lesson.id === 'ado' && mcpPanel()}
       {lesson.flow?.map(item => <section className="flow-step" key={item.heading}>
         <h2>{item.heading}</h2>
-        <p>{item.hint}</p>
+        <p>{tx(item.hint)}</p>
         {promptBlock(item.prompt)}
       </section>)}
-      {lesson.answers && <section className="answers panel" aria-label="Business answers">
+      {visibleAnswers(lesson.answers, settings).length > 0 && <section className="answers panel" aria-label="Business answers">
         <span className="eyebrow">You play Northwind · only when the squad asks</span>
         <h2>Business answers you can give</h2>
         <p className="small">Do not send these up front. Use them to answer the intake validator's questions consistently. Anything it does not ask about should appear in the documents as ASSUMPTION or OPEN.</p>
-        <table><tbody>{lesson.answers.map(item => <tr key={item.question}><td>{item.question}</td><td>{item.answer}</td></tr>)}</tbody></table>
+        <table><tbody>{visibleAnswers(lesson.answers, settings).map(item => <tr key={item.question}><td>{item.question}</td><td>{item.answer}</td></tr>)}</tbody></table>
       </section>}
       {lesson.behaviors && <section className="behavior-panel" aria-label="What to observe">
         <span className="eyebrow">Observe · not part of the request</span>
         <h2>What the squad should do on its own</h2>
-        <ul>{lesson.behaviors.map(item => <li key={item}>{item}</li>)}</ul>
+        <ul>{txList(lesson.behaviors).map(item => <li key={item}>{item}</li>)}</ul>
         <p className="small">{observationNote}</p>
       </section>}
       {lesson.reviewKey && <section className="review-key" aria-label="Review key">
         <span className="eyebrow">Review key</span>
         <h2>{lesson.reviewKey.title}</h2>
-        <p>{lesson.reviewKey.intro}</p>
-        <ol>{lesson.reviewKey.items.map(item => <li key={item.label}><strong>{item.label}</strong>{item.detail}</li>)}</ol>
+        <p>{tx(lesson.reviewKey.intro)}</p>
+        <ol>{lesson.reviewKey.items.map(item => <li key={item.label}><strong>{item.label}</strong>{tx(item.detail)}</li>)}</ol>
       </section>}
       <section aria-label="Steps">
         <div className="section-caption">{lesson.flow || lesson.setup ? 'Review and verify' : 'Steps'}</div>
@@ -319,25 +357,32 @@ function App() {
         </div>)}
       </section>
       <div className="checkpoint-grid">
-        <section className="evidence-card"><span className="eyebrow">Evidence</span><h2>Keep this</h2><ul>{lesson.evidence.map(item => <li key={item}>{item}</li>)}</ul></section>
+        <section className="evidence-card"><span className="eyebrow">Evidence</span><h2>Keep this</h2><ul>{txList(lesson.evidence).map(item => <li key={item}>{item}</li>)}</ul></section>
         <section className="check-card"><span className="eyebrow">Your checkpoint</span><h2>Can you show it?</h2>
           {lesson.checks.map((item, index) => <label className="check-row" key={item}>
             <input type="checkbox" checked={saved.checked.includes(lessonCheckId(lesson.id, index))} onChange={() => toggle(lessonCheckId(lesson.id, index))} />
-            <span>{item}</span>
+            <span>{tx(item)}</span>
           </label>)}
           <p className="small">Your own record, stored in this browser. It does not inspect your project.</p>
         </section>
       </div>
-      <aside className="recovery"><h3>If you get stuck</h3><p>{lesson.recovery}</p></aside>
+      <aside className="recovery"><h3>If you get stuck</h3><p>{tx(lesson.recovery)}</p></aside>
     </article>
   }
 
-  const totalMinutes = agenda.reduce((total, item) => total + item.minutes, 0)
+  const agendaItems = visibleAgenda(settings)
+  const totalMinutes = agendaItems.reduce((total, item) => total + item.minutes, 0)
+  const lessonNumber = (id: string) => lessons.find(lesson => lesson.id === id)?.number
+  const outcomes: Record<string, string> = {
+    azure: 'Migration blockers found in the code, not guessed.',
+    dotnet: 'Pricing tests green and unchanged on .NET 10.',
+    powerPlatform: 'Licences, data and approvals designed before anything is built.',
+  }
   const overview = <div className="overview">
     <section className="hero">
-      <div className="eyebrow">Hands-on workshop · HVE Squad v{squadVersion}</div>
-      <h1>From a business case to a <em>modernized app on Azure.</em></h1>
-      <p className="lead">Build three cooperating squads in one repository. A product team turns Northwind's business case into a traceable backlog. An Azure team plans the migration. A .NET team upgrades the legacy application — and you review, answer and approve along the way.</p>
+      <div className="eyebrow">Hands-on workshop · <a href={squadReleaseUrl} target="_blank" rel="noreferrer">HVE Squad v{squadVersion}</a> (latest release)</div>
+      <h1>From one business case to <em>releases every team can build.</em></h1>
+      <p className="lead">A product team turns Northwind's business case into traceable documents and a backlog tagged by track, with one release per delivery track. You choose the tracks — Azure, .NET, Power Platform — and each track's team builds from its own release, independently of the others. You review, answer and approve along the way.</p>
       <div className="hero-actions">
         <button type="button" className="button starter-button" disabled={starterBusy} onClick={fetchStarter}>{starterBusy ? 'Writing files…' : 'Get the starter solution'}</button>
         <a className="button" href="#prepare">Start with Part 00 →</a>
@@ -346,25 +391,26 @@ function App() {
       {starterMessage && <p className="starter-result" role="status">{starterMessage}</p>}
       <div className="hero-meta">
         <span><strong>~{Math.round(totalMinutes / 6) / 10} hours</strong>facilitated or self-paced</span>
-        <span><strong>3 squads</strong>product · Azure · .NET</span>
-        <span><strong>1 repository</strong>your evidence</span>
-        <span><strong>0 deployments</strong>nothing touches Azure</span>
+        <span><strong>{chosen.length + 1} teams</strong>product · {chosen.map(track => track.label).join(' · ')}</span>
+        <span><strong>{chosen.length} {chosen.length === 1 ? 'release' : 'releases'}</strong>one Git tag per track</span>
+        <span><strong>0 deployments</strong>nothing touches Azure or a tenant</span>
       </div>
     </section>
+    {trackPicker('overview')}
     <section className="card" aria-label="Journey">
-      <div className="section-heading"><h2>One connected journey</h2><span className="badge">Single squad → federation</span></div>
+      <div className="section-heading"><h2>One product, independent tracks</h2><span className="badge">Single squad → federation</span></div>
       <div className="journey">
-        <div><span>02</span><strong>Product</strong><small>Intake · BRD · PRD · MVE · backlog</small><em className="team-chip">{settings.productSquad}</em></div>
+        <div><span>02</span><strong>Product</strong><small>Intake · BRD · PRD · MVE · tagged backlog · {chosen.length === 1 ? 'one release' : `${chosen.length} releases`}</small><em className="team-chip">{settings.productSquad}</em></div>
         <div className="optional"><span>03 · optional</span><strong>Azure DevOps</strong><small>Publish with approval</small></div>
-        <div><span>04</span><strong>Azure migration</strong><small>Blockers · HLD/LLD · Bicep · cost</small><em className="team-chip">{settings.migrationSquad}</em></div>
-        <div><span>05</span><strong>.NET modernization</strong><small>4.8 → .NET 10 · tests stay green</small><em className="team-chip">{settings.modernizationSquad}</em></div>
-        <div><span>06</span><strong>Together</strong><small>Status across teams · resume</small></div>
+        {chosen.map(track => <div key={track.id} className="track-card"><span>{lessonNumber(track.lessonId)} · {track.area}</span><strong>{track.label}</strong><small>{track.produces}</small><code className="release-chip">{releaseTag(track)}</code><em className="team-chip">{settings[track.squadKey]}</em></div>)}
+        <div><span>08</span><strong>Together</strong><small>Status across teams · resume</small></div>
       </div>
+      <p className="small">Each track team starts from its own release after the federation is opened (Part 04) and never waits for another track. Do the tracks in any order; in a group session, split them across tables.</p>
     </section>
     <div className="overview-grid">
       <section className="agenda-card">
         <div className="section-heading"><h2>Agenda</h2><span className="small">Durations, not clock times</span></div>
-        {agenda.map(item => {
+        {agendaItems.map(item => {
           const lesson = lessons.find(candidate => candidate.id === item.lesson)
           return <div className="agenda-row" key={item.title}>
             <span className="num">{lesson?.number ?? '—'}</span>
@@ -379,10 +425,9 @@ function App() {
         <h2>Leave able to do it again.</h2>
         <p>You do not need a finished application. You need to show evidence, explain your decisions and resume the work later.</p>
         <ul>
-          <li>Every requirement traceable to its source.</li>
-          <li>Migration blockers found in the code, not guessed.</li>
-          <li>Pricing tests green and unchanged on .NET 10.</li>
-          <li>Three teams, one consistent picture.</li>
+          <li>Every requirement traceable to its source, every backlog item tagged with its track.</li>
+          {chosen.map(track => <li key={track.id}>{outcomes[track.id]}</li>)}
+          <li>{chosen.length + 1} teams, one consistent picture.</li>
         </ul>
         <div className="inset"><strong>Northwind is fictitious.</strong><p>Every document and line of code in the starter is synthetic and safe to share.</p></div>
       </section>
@@ -390,20 +435,30 @@ function App() {
     <section className="feedback-note">
       <h2>Designed from participant feedback</h2>
       <ul>
-        <li>One prerequisites list, each tool tied to the part that needs it.</li>
+        <li>One prerequisites list, each tool tied to the part or track that needs it.</li>
         <li>One button for a ready-to-use folder; no manual repository setup.</li>
         <li>Markdown business case: no PDF readers, Python or OCR.</li>
         <li>Identifiers on every fact, so invented or missing requirements are easy to spot.</li>
         <li>An intake validator checks the case for gaps before any document is drafted.</li>
-        <li>Engineering standards that define structure, style and file locations.</li>
+        <li>Engineering standards that define structure, style, file locations, track tags and releases.</li>
+        <li>Independent tracks you choose, so every team or table can work on a different area.</li>
         <li>Azure DevOps optional, with the official remote MCP server.</li>
         <li>Review keys and terminal checks instead of trusting summaries.</li>
       </ul>
     </section>
   </div>
 
-  const nextLesson = active ? lessons[lessons.indexOf(active) + 1] : undefined
-  const previousLesson = active ? lessons[lessons.indexOf(active) - 1] : undefined
+  const nextLesson = active ? visible[visible.indexOf(active) + 1] : undefined
+  const previousLesson = active ? visible[visible.indexOf(active) - 1] : undefined
+  const hiddenTrack = tracks.find(track => track.id === hiddenLesson?.track)
+  const hiddenPage = hiddenLesson && hiddenTrack && <section className="hidden-part">
+    <div className="eyebrow">{hiddenLesson.eyebrow}</div>
+    <h1>Part {hiddenLesson.number} is hidden</h1>
+    <p className="lead">You did not choose the {hiddenTrack.label} track, so its part is hidden from this guide. Tracks are independent: you can add it at any time.</p>
+    <button type="button" className="button primary" onClick={() => updateSetting('tracks', toggleTrack(settings.tracks, hiddenTrack.id))}>Add the {hiddenTrack.label} track</button>{' '}
+    <a className="button" href="#overview">Back to the overview</a>
+  </section>
+
   const resources = <article className="resources">
     <div className="eyebrow">Keep moving, without guessing</div>
     <h1>Resources</h1>
@@ -435,8 +490,9 @@ function App() {
     </header>
     {setupOpen && <section className="session-setup" aria-label="Session setup">
       <div className="setup-heading"><div><h2>Session setup</h2><p>Stored only in this browser. The guide uses these values to complete the requests you copy. Never enter passwords or tokens.</p></div><button type="button" onClick={() => setSetupOpen(false)}>Close</button></div>
-      <div className="settings-group"><h3>Team names · Parts 04–06</h3><p className="small">Keep the suggestions unless a squad registers a different name; then type the registered name here.</p>
-        <div className="settings-grid">{squadKeys.map(key => <label key={key}>{squadLabels[key]}
+      <div className="settings-group">{trackPicker('Session setup', true)}</div>
+      <div className="settings-group"><h3>Team names · Parts 04–08</h3><p className="small">Keep the suggestions unless a squad registers a different name; then type the registered name here. Only the teams of your tracks are listed.</p>
+        <div className="settings-grid">{(['productSquad', ...chosen.map(track => track.squadKey)] as SquadKey[]).map(key => <label key={key}>{squadLabels[key]}
           <span className="help">{fieldHelp[key]}</span>
           <input value={settings[key]} maxLength={60} aria-invalid={!!squadNameError(settings[key])} onChange={event => updateSetting(key, event.target.value)} />
           {squadNameError(settings[key]) && <span role="alert">{squadNameError(settings[key])}</span>}
@@ -454,7 +510,7 @@ function App() {
         <div className="sidebar-heading">Your journey</div>
         <nav>
           <a href="#overview" aria-current={page === 'overview' ? 'page' : undefined}><span className="nav-number">↗</span>Overview</a>
-          {lessons.map(lesson => {
+          {visible.map(lesson => {
             const ids = [...lesson.checks.map((_, index) => lessonCheckId(lesson.id, index)), ...(lesson.setup ?? []).map(step => setupCheckId(step.id))]
             const done = ids.every(id => saved.checked.includes(id))
             return <a key={lesson.id} href={`#${lesson.id}`} aria-current={page === lesson.id ? 'page' : undefined}>
@@ -486,14 +542,14 @@ function App() {
         {routingPicker('page')}
         {storageError && <div className="notice warning" role="alert">{storageError}<button type="button" onClick={() => setResetOpen(true)}>Reset options</button></div>}
         <div className="status" role="status" aria-live="polite">{status}</div>
-        {page === 'overview' ? overview : active ? renderLesson(active) : page === 'resources' ? resources
+        {page === 'overview' ? overview : active ? renderLesson(active) : hiddenPage ? hiddenPage : page === 'resources' ? resources
           : <section><h1>Page not found</h1><p>This link does not match a part of the workshop.</p><a href="#overview">Back to the overview</a></section>}
         {active && <nav className="lesson-navigation" aria-label="Previous and next part">
           <a href={`#${previousLesson?.id ?? 'overview'}`}>← {previousLesson?.title ?? 'Overview'}</a>
           <a className="button primary" href={`#${nextLesson?.id ?? 'resources'}`}>{nextLesson?.title ?? 'Resources'} →</a>
         </nav>}
-        {lessons.map(lesson => renderLesson(lesson, true))}
-        <footer><span>HVE Squad hands-on workshop · Northwind Traders is fictitious</span><span>Built for HVE Squad v{squadVersion} · {lifecycleSteps.length} setup steps · {stats.coreTotal} core checkpoints</span></footer>
+        {visible.map(lesson => renderLesson(lesson, true))}
+        <footer><span>HVE Squad hands-on workshop · Northwind Traders is fictitious</span><span>Built for <a href={squadReleaseUrl} target="_blank" rel="noreferrer">HVE Squad v{squadVersion}</a>, the latest release · tracks: {chosen.map(track => track.label).join(', ')} · {stats.coreTotal} core checkpoints</span></footer>
       </main>
     </div>
     <dialog ref={resetDialog} className="reset-dialog" aria-labelledby="reset-title" onClose={() => setResetOpen(false)}>
@@ -503,7 +559,7 @@ function App() {
       <button type="button" className="danger" onClick={() => {
         try {
           localStorage.removeItem(storageKey)
-          setSaved({ schema: 1, checked: [], settings: { ...defaults } })
+          setSaved({ schema: 1, checked: [], settings: { ...defaults, tracks: [...defaults.tracks] } })
           setStorageError('')
           setStatus('This guide\'s browser data was reset.')
         } catch (error) {
