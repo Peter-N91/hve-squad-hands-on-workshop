@@ -1,7 +1,7 @@
 # Northwind Traders — HVE Squad hands-on workshop project
 
-This folder is **your** workshop project. You will open it in GitHub Copilot (App, CLI or
-VS Code) and work with HVE Squad on it. The companion guide is at
+This folder is **your** workshop project. You will open it in GitHub Copilot (we recommend the
+CLI; the App and VS Code also work) and work with HVE Squad on it. The companion guide is at
 <https://peter-n91.github.io/hve-squad-hands-on-workshop/>.
 
 Northwind Traders is a fictitious B2B food distributor. Everything in this folder is
@@ -31,12 +31,16 @@ Each track's team builds from its own releases and never waits for another track
 
 ## First steps
 
-1. Open a terminal **in this folder**.
-2. Run the readiness check:
+1. Read the HVE Squad core ideas (about 10 minutes):
+   <https://peter-n91.github.io/hve-squad/concepts.html>. The squad uses a few words from its
+   first message (init, promote, team, federation, profile, pack, autopilot), and the guide links
+   each one back to that page.
+2. Open a terminal **in this folder**.
+3. Run the readiness check:
    - Windows: `powershell -ExecutionPolicy Bypass -File tools\ready.ps1`
    - macOS or Linux: `bash tools/ready.sh`
-3. Fix anything marked **MISSING** that the guide says you need for the parts you will do.
-4. Open this folder in your Copilot client and continue with Part 01 of the guide.
+4. Fix anything marked **MISSING** that the guide says you need for the parts you will do.
+5. Open this folder in your Copilot client and continue with Part 01 of the guide.
 
 ## Ground rules
 

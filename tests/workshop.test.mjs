@@ -2,14 +2,15 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import {
-  agenda, autopilotMode, diagramsRequirement, diagramsVersion, installation, lessons, lifecycleSteps, prerequisites, readinessQuestion, readyScript, releaseName,
-  releaseTag, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion, suggestedSquads, trackIds, trackModeOptions, tracks, troubleshooting,
+  agenda, autopilotMode, clientAdvice, coachQuestion, conceptsUrl, diagramsRequirement, diagramsVersion, docsUrl, glossary, installation, lessons, lifecycleExplainers, lifecycleSteps,
+  modeRule, newConversation, prerequisites, readFirst, readinessQuestion, readyScript, releaseName, releaseTag, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion,
+  startHereTerms, suggestedSquads, trackIds, trackModeOptions, tracks, troubleshooting,
 } from '../src/content.ts'
 import { hveSquadRelease } from '../src/hve-squad-release.ts'
 import {
-  addTrack, agentSelection, checkIds, checkLabel, coreCheckIds, decodeState, defaults, fillNames, missingSetup, normalizeTracks, optionalCheckIds, pickTrack,
-  progress, promptBlockers, setTrackMode,
-  renderPrompt, resolveConditions, setupCheckId, squadNameError, storageKey, toggleCheck, toggleTrack, visibleAgenda, visibleAnswers, visibleLessons,
+  addTrack, agentSelection, checkIds, checkLabel, coreCheckIds, decodeState, defaults, fillNames, missingSetup, newConversationHow, normalizeTracks, optionalCheckIds, pickTrack,
+  progress, promptBlockers, promptTermIds, promptTerms, setTrackMode,
+  renderPrompt, resolveConditions, setupCheckId, squadNameError, storageKey, stripTerms, termById, termParts, toggleCheck, toggleTrack, visibleAgenda, visibleAnswers, visibleLessons,
   visiblePrerequisites,
 } from '../src/state.ts'
 import { applyRelease, collectStarter, crc32, createZip, starterFolder } from '../scripts/build-starter.mjs'
@@ -39,7 +40,7 @@ const lessonStrings = item => [
   item.goal, item.concept, item.recovery, ...item.inputs, ...item.evidence, ...item.checks, ...(item.behaviors ?? []),
   ...(item.reviewKey ? [item.reviewKey.intro, ...item.reviewKey.items.map(entry => entry.detail)] : []),
   ...item.steps.map(step => step.body), ...(item.flow ?? []).map(flow => flow.hint),
-  ...(item.setup ?? []).flatMap(step => [step.description, step.checkpoint, ...step.expected]),
+  ...(item.setup ?? []).flatMap(step => [step.description, step.checkpoint, ...step.expected, ...(step.questions ?? []).flatMap(question => [question.ask, question.answer])]),
 ]
 
 test('the agenda follows the lessons and shrinks with the tracks chosen', () => {
@@ -138,13 +139,16 @@ test('only work requests carry autopilot, for every client', () => {
   }
 })
 
-test('App and CLI put the mode, routing and squad target on the first line', () => {
-  const text = renderPrompt(workPrompt('migration'), defaults)
-  assert.ok(text.startsWith(`${autopilotMode} routing="off" squad="azure-migration"\n\nPlan the move`), text.slice(0, 80))
-  const power = renderPrompt(workPrompt('powerplatform'), defaults)
-  assert.ok(power.startsWith(`${autopilotMode} routing="off" squad="power-platform"\n\nDesign the delivery-claims`), power.slice(0, 80))
-  const promote = lifecycleSteps.find(step => step.id === 'promote').request
-  assert.ok(renderPrompt(promote, { ...defaults, experience: 'app' }).startsWith('promote\n\n'))
+test('every client puts the mode, routing and squad target on the first line', () => {
+  for (const experience of ['app', 'cli', 'vscode']) {
+    const settings = { ...defaults, experience }
+    const text = renderPrompt(workPrompt('migration'), settings)
+    assert.ok(text.startsWith(`${autopilotMode} routing="off" squad="azure-migration"\n\nPlan the move`), `${experience}: ${text.slice(0, 80)}`)
+    const power = renderPrompt(workPrompt('powerplatform'), settings)
+    assert.ok(power.startsWith(`${autopilotMode} routing="off" squad="power-platform"\n\nDesign the delivery-claims`), `${experience}: ${power.slice(0, 80)}`)
+    const promote = lifecycleSteps.find(step => step.id === 'promote').request
+    assert.ok(renderPrompt(promote, settings).startsWith('promote\n\n'), experience)
+  }
 })
 
 test('every autopilot request carries the chosen routing, and nothing else does', () => {
@@ -156,7 +160,7 @@ test('every autopilot request carries the chosen routing, and nothing else does'
       const settings = { ...defaults, ...publication, experience, routing }
       for (const prompt of allPrompts) {
         const text = renderPrompt(prompt, settings)
-        const header = experience === 'vscode' ? text.slice(0, text.indexOf(' request=')) : text.split('\n')[0]
+        const header = text.split('\n')[0]
         if (prompt.kind === 'work') assert.ok(header.includes(`${autopilotMode} routing="${routing}"`), `${experience} ${routing} ${prompt.title}: ${header}`)
         else assert.doesNotMatch(text, /routing="/, `${experience} ${prompt.title}`)
       }
@@ -259,21 +263,146 @@ test('the .NET track never waits for the Azure track', () => {
   assert.deepEqual(promptBlockers(modernize, { ...defaults, tracks: ['dotnet'] }, ['setup:product-team', 'setup:promote', 'setup:modernization-team']), [])
 })
 
-test('VS Code commands use the documented prompt inputs', () => {
+test('every client gets the same message, and no slash command is involved', () => {
+  const settings = { ...defaults, ...publication }
+  for (const prompt of allPrompts) {
+    if (prompt.kind === 'shell') continue
+    const reference = renderPrompt(prompt, { ...settings, experience: 'cli' })
+    for (const experience of ['app', 'vscode']) assert.equal(renderPrompt(prompt, { ...settings, experience }), reference, `${experience} · ${prompt.title}`)
+    assert.doesNotMatch(reference, /^\/|request="/, prompt.title)
+  }
   const vscode = { ...defaults, experience: 'vscode' }
-  const productInit = renderPrompt(lifecycleSteps[0].request, vscode)
-  assert.ok(productInit.startsWith('/squad request="init\\n\\n'), productInit)
-  const migrationInit = renderPrompt(lifecycleSteps[2].request, vscode)
-  assert.ok(migrationInit.startsWith('/squad-federation init request="Add a new team named \\"azure-migration\\"'), migrationInit)
-  const promote = renderPrompt(lifecycleSteps[1].request, vscode)
-  assert.ok(promote.startsWith('/squad-federation promote request="We want'), promote)
+  assert.ok(renderPrompt(lifecycleSteps[0].request, vscode).startsWith('init\n\nUse the documents in knowledge-docs'))
+  assert.ok(renderPrompt(lifecycleSteps[1].request, vscode).startsWith('promote\n\nWe want'))
+  assert.ok(renderPrompt(lifecycleSteps[2].request, vscode).startsWith('init\n\nAdd a new team named "azure-migration"'))
   const modernize = renderPrompt(workPrompt('modernize'), vscode)
-  assert.ok(modernize.startsWith('/squad-federation mode="autopilot" routing="off" squad="dotnet-modernization" request="Modernize'), modernize)
-  const work = renderPrompt(workPrompt('product'), vscode)
-  const request = JSON.parse(work.slice(work.indexOf('request=') + 'request='.length))
-  assert.match(request, /^Using knowledge-docs/)
-  assert.match(request, /\n- Azure: track tag track-azure; release tags azure-r1, azure-r2 and so on; release files docs\/product\/releases\/azure-r<n>\.md; Git tags product\/azure-r<n>/)
+  assert.ok(modernize.startsWith(`${autopilotMode} routing="off" squad="dotnet-modernization"\n\nModernize`), modernize.slice(0, 100))
+  assert.match(renderPrompt(workPrompt('product'), vscode), /\n- Azure: track tag track-azure; release tags azure-r1, azure-r2 and so on; release files docs\/product\/releases\/azure-r<n>\.md; Git tags product\/azure-r<n>/)
   assert.equal(renderPrompt(readinessQuestion, vscode), readinessQuestion.text)
+})
+
+test('no obsolete VS Code slash-command guidance remains', () => {
+  const copy = JSON.stringify({ lessons, troubleshooting, prerequisites, installation, glossary, readFirst, clientAdvice, newConversation, lifecycleExplainers })
+  assert.doesNotMatch(copy, /(?<![\w.-])\/squad(?:-[a-z-]+)?(?![\w/-])/)
+  assert.doesNotMatch(copy, /request=|Hands a request to|skill with the same name/)
+  assert.match(clientAdvice.vscode, /agents dropdown/)
+})
+
+test('every glossary term links to a section of the HVE Squad docs', () => {
+  assert.equal(new Set(glossary.map(term => term.id)).size, glossary.length)
+  for (const term of glossary) {
+    assert.ok(term.label && term.meaning, term.id)
+    assert.match(term.url, /^https:\/\/peter-n91\.github\.io\/hve-squad\/[a-z-]+\.html(#[a-z0-9-]+)?$/, term.id)
+    assert.ok(term.url.startsWith(docsUrl), term.id)
+  }
+  assert.equal(conceptsUrl, `${docsUrl}concepts.html`)
+  assert.equal(termById('init').url, `${conceptsUrl}#init-promote-and-work-requests`)
+  assert.equal(termById('profile-table').url, `${docsUrl}usage.html#profiles`)
+  assert.throws(() => termById('nope'), /Unknown glossary term/)
+  assert.ok(startHereTerms.every(id => glossary.some(term => term.id === id)))
+  for (const id of ['init', 'promote', 'profile', 'pack', 'autopilot', 'team', 'federation', 'routing']) assert.ok(startHereTerms.includes(id), id)
+})
+
+test('lesson text links the terms it names, and the markup never leaks into what you paste', () => {
+  assert.deepEqual(termParts('A [team](term:team) and [pack](term:pack).'), ['A ', { term: termById('team'), label: 'team' }, ' and ', { term: termById('pack'), label: 'pack' }, '.'])
+  assert.equal(stripTerms('See [init](term:init) now'), 'See init now')
+  assert.throws(() => termParts('[x](term:unknown)'), /Unknown glossary term/)
+  const texts = [...lessons.flatMap(lessonStrings), ...troubleshooting.map(([, body]) => body), modeRule.body, newConversation.why]
+  const linked = new Set()
+  for (const text of texts) {
+    for (const part of termParts(text)) if (typeof part !== 'string') linked.add(part.term.id)
+    assert.doesNotMatch(stripTerms(fillNames(text, defaults)), /\]\(term:/, text.slice(0, 40))
+  }
+  for (const id of ['init', 'promote', 'profile', 'pack', 'autopilot', 'team', 'federation', 'routing']) assert.ok(linked.has(id), `${id} is linked in the guide`)
+  for (const prompt of allPrompts) assert.doesNotMatch(prompt.text, /\]\(term:/, prompt.title)
+})
+
+test('a copied message lists the terms it uses', () => {
+  const [productInit, promote, azureInit] = lifecycleSteps.map(step => step.request)
+  assert.deepEqual(promptTermIds(productInit), ['init', 'team', 'profile', 'pack'])
+  assert.deepEqual(promptTermIds(azureInit), ['init', 'team', 'federation', 'profile', 'pack'])
+  assert.deepEqual(promptTermIds(promote), ['promote', 'federation', 'state'])
+  assert.deepEqual(promptTermIds(workPrompt('product')), ['work-request', 'autopilot', 'routing'])
+  assert.deepEqual(promptTermIds(workPrompt('together')), ['federation', 'state'])
+  assert.deepEqual(promptTermIds(coachQuestion), ['coach'])
+  assert.deepEqual(promptTermIds(readinessQuestion), [])
+  assert.deepEqual(promptTermIds(installation.cli), [])
+  for (const prompt of allPrompts) for (const term of promptTerms(prompt)) assert.ok(term.url.startsWith(docsUrl), prompt.title)
+})
+
+test('the guide asks for the core ideas to be read before Part 00', () => {
+  const prepare = lesson('prepare')
+  assert.match(readFirst.action, /core ideas/)
+  assert.match(readFirst.body, /init, promote, team, federation, profile, pack, autopilot/)
+  assert.match(readFirst.eyebrow, /before Part 00/)
+  assert.match(prepare.checks.at(-1), /core ideas/)
+  // The new checkpoint is appended: checkpoints ticked before it existed keep their meaning.
+  assert.match(prepare.checks[0], /^My northwind-workshop folder exists/)
+  assert.match(prepare.checks[3], /^Copilot read the case/)
+  assert.match(prepare.concept, /core ideas/)
+  assert.equal(sources[1].url, conceptsUrl)
+  assert.match(agenda.find(item => item.lesson === 'prepare').note, /40 min/)
+})
+
+test('each team setup explains what the coordinator asks and what to answer', () => {
+  for (const step of lifecycleSteps) {
+    assert.ok(lifecycleExplainers[step.request.lifecycle], step.id)
+    assert.ok(step.questions?.length, step.id)
+    for (const question of step.questions) assert.ok(question.ask && question.answer, step.id)
+  }
+  const product = lifecycleSteps[0].questions
+  assert.ok(product.some(question => /federation/.test(question.ask)))
+  assert.match(product.find(question => /profile/.test(question.ask)).answer, /product/)
+  assert.ok(product.find(question => /profile/.test(question.ask)).terms.includes('profile-table'))
+  const packs = product.find(question => /pack/.test(question.ask))
+  assert.match(packs.answer, /^None\./)
+  assert.match(packs.answer, /menu, not a recommendation/)
+  assert.ok(packs.terms.includes('pack'))
+  for (const id of ['migration-team', 'modernization-team']) {
+    assert.match(lifecycleSteps.find(step => step.id === id).questions.find(question => /packs/.test(question.ask)).answer, /^None\./, id)
+  }
+  const power = lifecycleSteps.find(step => step.id === 'power-platform-team').questions.find(question => /packs/.test(question.ask)).answer
+  assert.match(power, /^Yes to power-platform/)
+  assert.match(power, /Skip Microsoft 365 Copilot, AWS and Foundry/)
+  assert.match(lifecycleExplainers.init.doesNot.join(' '), /no requirements, backlog, plan or code/)
+  assert.match(lifecycleExplainers.init.does.join(' '), /\.copilot-tracking\/squad\//)
+  assert.match(lifecycleExplainers.promote.doesNot.join(' '), /docs\/, knowledge-docs and the product\/\* Git tags stay/)
+})
+
+test('the guide explains why a new conversation is safe, and how to start one in each client', () => {
+  assert.match(newConversation.why, /files under \.copilot-tracking\/squad\//)
+  assert.match(newConversation.why, /nothing is lost/i)
+  assert.match(newConversationHow(lifecycleSteps[0].request, { experience: 'cli' }), /type \/new, then \/agent and choose Squad Coordinator/)
+  assert.match(newConversationHow(lifecycleSteps[1].request, { experience: 'app' }), /new chat[\s\S]*Squad Federation Coordinator/)
+  assert.match(newConversationHow(lifecycleSteps[1].request, { experience: 'vscode' }), /agents dropdown/)
+  for (const experience of ['cli', 'app', 'vscode']) assert.doesNotMatch(newConversationHow(lifecycleSteps[0].request, { experience }), /\{agent\}/)
+  assert.match(lesson('together').flow[0].hint, /\[new conversation\]\(term:new-chat\)/)
+  assert.ok(troubleshooting.some(([title]) => /new conversation/.test(title)))
+})
+
+test('Copilot CLI is recommended, and every client has guidance', () => {
+  assert.match(clientAdvice.cli, /^Recommended/)
+  assert.match(clientAdvice.app, /terminal/)
+  assert.equal(defaults.experience, 'cli')
+  assert.match(prerequisites.find(item => item.what === 'One Copilot client').why, /We recommend Copilot CLI/)
+  assert.ok(troubleshooting.some(([title, body]) => title === 'Which Copilot client should I use?' && /Copilot CLI is recommended/.test(body)))
+})
+
+test('the Squad Coach is explained and offered as an optional, read-only question', () => {
+  const step = lesson('orient').steps.find(item => item.prompt === coachQuestion)
+  assert.ok(step)
+  assert.match(step.title, /Optional/)
+  assert.match(step.body, /read-only/)
+  assert.match(step.body, /skip the Coach and lose nothing/)
+  assert.equal(coachQuestion.kind, 'question')
+  assert.equal(coachQuestion.entry, 'squad-coach')
+  assert.match(coachQuestion.text, /Do not change any files/)
+  assert.doesNotMatch(renderPrompt(coachQuestion, defaults), /mode=|routing=/)
+  assert.match(agentSelection(coachQuestion, defaults).instruction, /choose Squad Coach/)
+  assert.equal(agentSelection(coachQuestion, { ...defaults, experience: 'vscode' }).identifier, 'Squad Coach')
+  assert.match(agentSelection(coachQuestion, { ...defaults, experience: 'app' }).identifier, /squad-coach$/)
+  assert.ok(allPrompts.filter(prompt => prompt.entry === 'squad-coach').every(prompt => prompt.kind === 'question'))
+  assert.ok(allPrompts.filter(prompt => prompt.kind === 'work' || prompt.kind === 'setup').every(prompt => prompt.entry !== 'squad-coach'))
 })
 
 test('custom team names flow through every request and are validated', () => {
@@ -357,7 +486,10 @@ test('progress counts core checkpoints and keeps the optional part separate', ()
 test('agent selection matches each client', () => {
   assert.match(agentSelection({ entry: 'squad', kind: 'work' }, defaults).instruction, /type \/agent/)
   assert.match(agentSelection({ entry: 'squad-federation', kind: 'setup' }, { ...defaults, experience: 'app' }).instruction, /agent list/)
-  assert.equal(agentSelection({ entry: 'squad-federation', kind: 'work' }, { ...defaults, experience: 'vscode' }).identifier, '/squad-federation')
+  const vscode = agentSelection({ entry: 'squad-federation', kind: 'work' }, { ...defaults, experience: 'vscode' })
+  assert.equal(vscode.identifier, 'Squad Federation Coordinator')
+  assert.match(vscode.instruction, /agents dropdown/)
+  assert.doesNotMatch(vscode.instruction, /\/squad|prompt/)
   assert.match(agentSelection({ kind: 'plain' }, defaults).instruction, /do not select a squad/)
 })
 

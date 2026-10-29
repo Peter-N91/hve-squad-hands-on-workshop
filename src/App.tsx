@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  apmCliReleaseUrl, apmCliVersion, docsUrl, installation, lessons, modeRule, modelGuidance, releaseName,
-  notNeeded, observationNote, pwshNote, routingNote, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion,
+  apmCliReleaseUrl, apmCliVersion, clientAdvice, conceptsUrl, docsUrl, installation, lessons, lifecycleExplainers, modeRule, modelGuidance, newConversation, readFirst, releaseName,
+  notNeeded, observationNote, pwshNote, routingNote, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion, startHereTerms,
   trackModeOptions, trackNote, tracks, troubleshooting,
 } from './content'
-import type { Lesson, LessonStep, Prompt, SquadKey } from './content'
+import type { Lesson, LessonStep, LifecycleStep, Prompt, SquadKey, Term } from './content'
 import {
-  agentSelection, chosenTracks, clientLabels, clients, decodeState, defaults, fillNames, lessonCheckId, missingSetup, nextClient, progress,
-  promptBlockers, publicationFields, publicationLabels, renderPrompt, setupCheckId, squadLabels, squadNameError,
-  addTrack, pickTrack, setTrackMode, storageKey, themeKey, toggleCheck, visibleAgenda, visibleAnswers, visibleLessons, visiblePrerequisites,
+  agentSelection, chosenTracks, clientLabels, clients, decodeState, defaults, fillNames, lessonCheckId, missingSetup, newConversationHow, nextClient, progress,
+  promptBlockers, promptTerms, publicationFields, publicationLabels, renderPrompt, setupCheckId, squadLabels, squadNameError,
+  addTrack, pickTrack, setTrackMode, storageKey, termById, termParts, themeKey, toggleCheck, visibleAgenda, visibleAnswers, visibleLessons, visiblePrerequisites,
 } from './state'
 import type { PublicationField, SavedState, Settings } from './state'
 import { canWriteFolders, downloadZip, getStarter, starterZipUrl } from './starter'
@@ -94,6 +94,10 @@ function App() {
   const chosen = chosenTracks(settings)
   const tx = (text: string) => fillNames(text, settings)
   const txList = (items: string[]) => items.map(tx).filter(item => item.trim())
+  /** Turns [label](term:id) into a link to the docs section that explains the term. */
+  const rich = (text: string): ReactNode => termParts(text).map((part, index) => typeof part === 'string' ? part
+    : <a key={index} className="term" href={part.term.url} target="_blank" rel="noreferrer" title={`${part.term.meaning} Opens the HVE Squad docs.`}>{part.label}</a>)
+  const tr = (text: string) => rich(tx(text))
 
   function persist(next: SavedState) {
     setSaved(next)
@@ -183,6 +187,62 @@ function App() {
     </section>
   }
 
+  function termLinks(terms: Term[]) {
+    return terms.map((term, index) => <span key={term.id}>{index > 0 && ' · '}<a className="term" href={term.url} target="_blank" rel="noreferrer" title={term.meaning}>{term.label}</a></span>)
+  }
+
+  function termsTable(ids: string[]) {
+    return <table className="terms-table">
+      <thead><tr><th>Term</th><th>In one sentence</th></tr></thead>
+      <tbody>{ids.map(id => {
+        const term = termById(id)
+        return <tr key={id}><td><a className="term" href={term.url} target="_blank" rel="noreferrer">{term.label}</a></td><td>{term.meaning}</td></tr>
+      })}</tbody>
+    </table>
+  }
+
+  function readFirstPanel(context: string) {
+    return <section className="panel read-first" aria-label={`${readFirst.title} (${context})`}>
+      <span className="eyebrow">{readFirst.eyebrow}</span>
+      <h2>{readFirst.title}</h2>
+      <p>{readFirst.body}</p>
+      <p><a className="button primary" href={conceptsUrl} target="_blank" rel="noreferrer">{readFirst.action} ↗</a></p>
+      {termsTable(startHereTerms)}
+    </section>
+  }
+
+  function lifecycleExplainer(step: LifecycleStep) {
+    const info = step.request.lifecycle && lifecycleExplainers[step.request.lifecycle]
+    if (!info) return null
+    return <section className="does-box" aria-label={info.title}>
+      <h3>{info.title}</h3>
+      <div className="does-grid">
+        <div><strong className="yes">It does</strong><ul>{info.does.map(item => <li key={item}>{item}</li>)}</ul></div>
+        <div><strong className="no">It does not</strong><ul>{info.doesNot.map(item => <li key={item}>{item}</li>)}</ul></div>
+      </div>
+    </section>
+  }
+
+  function setupQuestions(step: LifecycleStep) {
+    if (!step.questions?.length) return null
+    return <section className="questions" aria-label="What the coordinator will ask">
+      <h3>What the coordinator will ask — and what to answer here</h3>
+      <p className="small">Expect questions like these; the wording and the order vary. If an option is unclear, ask the coordinator to explain it instead of guessing.</p>
+      <table><tbody>{step.questions.map(item => <tr key={item.ask}>
+        <td>{item.ask}</td>
+        <td>{tx(item.answer)}{item.terms && <span className="term-links"> Read more: {termLinks(item.terms.map(termById))}</span>}</td>
+      </tr>)}</tbody></table>
+    </section>
+  }
+
+  function newConversationNote(step: LifecycleStep) {
+    return <aside className="new-chat" aria-label={newConversation.title}>
+      <strong>{newConversation.title}</strong>
+      <p>{newConversation.why} <a className="term" href={termById('new-chat').url} target="_blank" rel="noreferrer">Read more</a></p>
+      <p className="small">{newConversationHow(step.request, settings)}</p>
+    </aside>
+  }
+
   function promptBlock(prompt: Prompt) {
     const blockers = promptBlockers(prompt, settings, saved.checked)
     let text: string
@@ -195,6 +255,7 @@ function App() {
     }
     const shell = prompt.kind === 'shell'
     const agent = shell ? undefined : agentSelection(prompt, settings)
+    const terms = shell ? [] : promptTerms(prompt)
     const needsSettings = blockers.some(item => item.includes('Session setup') || item.includes('team name'))
     return <div className="prompt-block">
       <div className="prompt-toolbar">
@@ -203,6 +264,7 @@ function App() {
       </div>
       <h4>{prompt.title}</h4>
       {agent && <p className="agent-hint">{agent.instruction}</p>}
+      {terms.length > 0 && <p className="agent-hint term-links">Terms in this message: {termLinks(terms)}</p>}
       {prompt.kind === 'work' && routingPicker(prompt.title)}
       {shell && prompt.bash && <p className="shell-label">Windows · PowerShell</p>}
       <pre tabIndex={0}><code>{text}</code></pre>
@@ -222,7 +284,7 @@ function App() {
   function exercise(step: LessonStep, index: number) {
     return <div className="exercise" key={step.title}>
       <div className="step-index">{String(index + 1).padStart(2, '0')}</div>
-      <div><h2>{step.title}</h2><p>{tx(step.body)}</p>{step.prompt && promptBlock(step.prompt)}</div>
+      <div><h2>{step.title}</h2><p>{tr(step.body)}</p>{step.prompt && promptBlock(step.prompt)}</div>
     </div>
   }
   const starterPanel = (heading = 'Get the starter solution') => <section className="starter-panel" aria-label="Starter solution">
@@ -259,9 +321,9 @@ function App() {
         <p className="small">Labels can vary between App versions; see the <a href="https://peter-n91.github.io/hve-squad-plugin/install-desktop.html" target="_blank" rel="noreferrer">App installation guide</a>. A CLI installation does not install the App plugins.</p>
       </>}
       {vscode && <>
-        <p>VS Code uses the APM package, which adds the <code>/squad</code> and <code>/squad-federation</code> prompts to the folder. APM must be <strong>exactly {apmCliVersion}</strong> — newer versions currently fail on this package. Install it with the command from the table above, sign in to GitHub (<code>gh auth login</code>) to avoid slow rate limits, then run this inside the northwind-workshop folder:</p>
+        <p>VS Code uses the APM package, which adds the HVE Squad agents to the folder. APM must be <strong>exactly {apmCliVersion}</strong> — newer versions currently fail on this package. Install it with the command from the table above, sign in to GitHub (<code>gh auth login</code>) to avoid slow rate limits, then run this inside the northwind-workshop folder:</p>
         {promptBlock(installation.apm)}
-        <p className="small">Reload VS Code, open Copilot Chat and type <code>/</code>. Choose the entries described as “Hands a request to…”, not the skills with the same name. <a href={apmCliReleaseUrl} target="_blank" rel="noreferrer">APM {apmCliVersion} release</a>.</p>
+        <p className="small">Reload VS Code, open Copilot Chat and open the agents dropdown: Squad Coordinator and Squad Federation Coordinator must be listed. You choose an agent there and paste the message the guide gives you. <a href={apmCliReleaseUrl} target="_blank" rel="noreferrer">APM {apmCliVersion} release</a>.</p>
       </>}
     </section>
   }
@@ -284,10 +346,11 @@ function App() {
     return <article key={lesson.id} className={printOnly ? 'lesson print-only' : 'lesson'} aria-label={lesson.title}>
       <div className="eyebrow">{lesson.eyebrow}<span>/</span>{lesson.minutes ? `${lesson.minutes} min` : 'self-paced'}</div>
       <div className="lesson-title"><span className="big-number">{lesson.number}</span><h1>{lesson.title}</h1></div>
-      <p className="lead">{tx(lesson.goal)}</p>
+      <p className="lead">{tr(lesson.goal)}</p>
       {lesson.optional && <div className="optional-banner"><strong>Optional.</strong> Its checkpoints do not count toward your core progress, and nothing later depends on it.</div>}
-      <div className="concept"><strong>The idea</strong><p>{tx(lesson.concept)}</p></div>
+      <div className="concept"><strong>The idea</strong><p>{tr(lesson.concept)}</p></div>
       {lesson.id === 'prepare' && <>
+        {readFirstPanel(printOnly ? 'Part 00, print' : 'Part 00')}
         <section aria-label="Everything you need">
           <div className="section-heading"><h2>Everything you need, in one place</h2><span className="badge">Check once</span></div>
           <table className="prereq-table">
@@ -310,7 +373,7 @@ function App() {
       {lesson.id === 'product' && trackPicker(printOnly ? 'Part 02, print' : 'Part 02')}
       {lesson.id === 'orient' && <>
         <div className="rule-grid">
-          <aside className="rule-box"><strong>{modeRule.title}</strong><p>{modeRule.body}</p></aside>
+          <aside className="rule-box"><strong>{modeRule.title}</strong><p>{rich(modeRule.body)}</p></aside>
           <aside className="rule-box"><strong>{modelGuidance.title}</strong><p>{modelGuidance.body}</p></aside>
         </div>
         <section className="panel routing-panel" aria-label="Model routing">
@@ -322,15 +385,18 @@ function App() {
           <p className="small">{routingNote}</p>
         </section>
       </>}
-      <section className="inputs"><h2>Have these ready</h2><ul>{txList(lesson.inputs).map(input => <li key={input}>{input}</li>)}</ul></section>
+      <section className="inputs"><h2>Have these ready</h2><ul>{txList(lesson.inputs).map(input => <li key={input}>{rich(input)}</li>)}</ul></section>
       {lesson.setup && <section aria-label="Setup">
         <div className="section-caption">Setup first · confirm · then the work request</div>
         {lesson.setup.map(step => <section className="lifecycle-step" key={step.id}>
           <h2>{step.title}</h2>
-          <p>{tx(step.description)}</p>
+          <p>{tr(step.description)}</p>
+          {lifecycleExplainer(step)}
           {promptBlock(step.request)}
+          {setupQuestions(step)}
           <h3>What should happen</h3>
-          <ul>{txList(step.expected).map(item => <li key={item}>{item}</li>)}</ul>
+          <ul>{txList(step.expected).map(item => <li key={item}>{rich(item)}</li>)}</ul>
+          {newConversationNote(step)}
           <label className="check-row setup-check">
             <input type="checkbox" checked={saved.checked.includes(setupCheckId(step.id))} disabled={missingSetup(step.request, saved.checked, settings).length > 0} onChange={() => toggle(setupCheckId(step.id))} />
             <span>{tx(step.checkpoint)}</span>
@@ -340,7 +406,7 @@ function App() {
       {lesson.id === 'ado' && mcpPanel()}
       {lesson.flow?.map(item => <section className="flow-step" key={item.heading}>
         <h2>{item.heading}</h2>
-        <p>{tx(item.hint)}</p>
+        <p>{tr(item.hint)}</p>
         {promptBlock(item.prompt)}
       </section>)}
       {visibleAnswers(lesson.answers, settings).length > 0 && <section className="answers panel" aria-label="Business answers">
@@ -352,7 +418,7 @@ function App() {
       {lesson.behaviors && <section className="behavior-panel" aria-label="What to observe">
         <span className="eyebrow">Observe · not part of the request</span>
         <h2>What the squad should do on its own</h2>
-        <ul>{txList(lesson.behaviors).map(item => <li key={item}>{item}</li>)}</ul>
+        <ul>{txList(lesson.behaviors).map(item => <li key={item}>{rich(item)}</li>)}</ul>
         <p className="small">{observationNote}</p>
       </section>}
       {lesson.reviewKey && <section className="review-key" aria-label="Review key">
@@ -369,16 +435,16 @@ function App() {
         </div>)}
       </section>
       <div className="checkpoint-grid">
-        <section className="evidence-card"><span className="eyebrow">Evidence</span><h2>Keep this</h2><ul>{txList(lesson.evidence).map(item => <li key={item}>{item}</li>)}</ul></section>
+        <section className="evidence-card"><span className="eyebrow">Evidence</span><h2>Keep this</h2><ul>{txList(lesson.evidence).map(item => <li key={item}>{rich(item)}</li>)}</ul></section>
         <section className="check-card"><span className="eyebrow">Your checkpoint</span><h2>Can you show it?</h2>
           {lesson.checks.map((item, index) => <label className="check-row" key={item}>
             <input type="checkbox" checked={saved.checked.includes(lessonCheckId(lesson.id, index))} onChange={() => toggle(lessonCheckId(lesson.id, index))} />
-            <span>{tx(item)}</span>
+            <span>{tr(item)}</span>
           </label>)}
           <p className="small">Your own record, stored in this browser. It does not inspect your project.</p>
         </section>
       </div>
-      <aside className="recovery"><h3>If you get stuck</h3><p>{tx(lesson.recovery)}</p></aside>
+      <aside className="recovery"><h3>If you get stuck</h3><p>{tr(lesson.recovery)}</p></aside>
     </article>
   }
 
@@ -396,9 +462,9 @@ function App() {
       <h1>From one business case to <em>releases every team can build.</em></h1>
       <p className="lead">A product team turns Northwind's business case into traceable documents and a backlog tagged by track and by release, with numbered releases for each delivery track. You choose what to build — all tracks, one track or a selection of Azure, .NET and Power Platform — and each track's team builds from its own releases, independently of the others. You review, answer and approve along the way.</p>
       <div className="hero-actions">
+        <a className="button primary" href={conceptsUrl} target="_blank" rel="noreferrer">{readFirst.action} ↗</a>
         <button type="button" className="button starter-button" disabled={starterBusy} onClick={fetchStarter}>{starterBusy ? 'Writing files…' : 'Get the starter solution'}</button>
         <a className="button" href="#prepare">Start with Part 00 →</a>
-        <a className="button" href={docsUrl} target="_blank" rel="noreferrer">HVE Squad docs</a>
       </div>
       {starterMessage && <p className="starter-result" role="status">{starterMessage}</p>}
       <div className="hero-meta">
@@ -408,6 +474,7 @@ function App() {
         <span><strong>0 deployments</strong>nothing touches Azure or a tenant</span>
       </div>
     </section>
+    {readFirstPanel('overview')}
     {trackPicker('overview')}
     <section className="card" aria-label="Journey">
       <div className="section-heading"><h2>One product, independent tracks</h2><span className="badge">Single squad → federation</span></div>
@@ -448,6 +515,7 @@ function App() {
       <h2>Designed from participant feedback</h2>
       <ul>
         <li>One prerequisites list, each tool tied to the part or track that needs it.</li>
+        <li>A short reading before Part 00, and every term linked to its explanation in the docs.</li>
         <li>One button for a ready-to-use folder; no manual repository setup.</li>
         <li>Markdown business case: no PDF readers or OCR.</li>
         <li>Identifiers on every fact, so invented or missing requirements are easy to spot.</li>
@@ -479,7 +547,7 @@ function App() {
     <section><h2>Templates</h2><p>Blank templates for your own notes. Keep the filled copies in your northwind-workshop folder.</p>
       <a className="button primary" href={`${base}downloads/evidence-log.md`} download>Evidence log</a>
     </section>
-    <section><h2>When something goes wrong</h2>{troubleshooting.map(([title, body]) => <details key={title}><summary>{title}</summary><p>{body}</p></details>)}</section>
+    <section><h2>When something goes wrong</h2>{troubleshooting.map(([title, body]) => <details key={title}><summary>{title}</summary><p>{rich(body)}</p></details>)}</section>
     <section><h2>Sources</h2><ul className="source-list">{sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.name} ↗</a></li>)}</ul>
       <p className="small">HVE Squad logo and documentation identity are MIT licensed; Manrope, Source Sans 3 and JetBrains Mono are SIL Open Font License fonts. <a href={`${base}THIRD-PARTY-NOTICES.txt`}>Third-party notices</a>.</p>
     </section>
@@ -547,10 +615,10 @@ function App() {
             onKeyDown={event => {
               const next = nextClient(value, event.key)
               if (next) { event.preventDefault(); updateSetting('experience', next); document.getElementById(`client-${next}`)?.focus() }
-            }}>{clientLabels[value]}</button>)}</div>
+            }}>{clientLabels[value]}{value === 'cli' && <span className="optional-tag">recommended</span>}</button>)}</div>
           <div><button type="button" aria-pressed={focusMode} onClick={() => setFocusMode(!focusMode)}>{focusMode ? 'Show navigation' : 'Focus view'}</button><button type="button" onClick={() => window.print()}>Print guide</button></div>
         </div>
-        <p className="client-note">Your client: <strong>{clientLabels[settings.experience]}</strong>. Every request below is formatted for it{vscode ? ' as a /squad or /squad-federation command.' : ', to paste into the selected agent\'s chat.'} Work requests also carry <code>routing="{settings.routing}"</code> — change it below or in <a href="#orient">Part 01</a>.</p>
+        <p className="client-note">Your client: <strong>{clientLabels[settings.experience]}</strong>. {clientAdvice[settings.experience]} Every request below is the same text in every client, to paste into the selected agent's chat; the line above each block says how to select the agent in your client. Work requests also carry <code>routing="{settings.routing}"</code> — change it below or in <a href="#orient">Part 01</a>.</p>
         {routingPicker('page')}
         {storageError && <div className="notice warning" role="alert">{storageError}<button type="button" onClick={() => setResetOpen(true)}>Reset options</button></div>}
         <div className="status" role="status" aria-live="polite">{status}</div>

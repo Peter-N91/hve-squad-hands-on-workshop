@@ -86,20 +86,26 @@ export type Prompt = {
   kind: PromptKind
   text: string
   bash?: string
-  entry?: 'squad' | 'squad-federation'
+  entry?: 'squad' | 'squad-federation' | 'squad-coach'
   lifecycle?: 'init' | 'promote'
   /** Setup steps of tracks the participant did not choose are ignored. */
   requiresSetup?: SetupId[]
   requiresChecks?: string[]
   squadTarget?: SquadKey
   publication?: boolean
+  /** Glossary term ids listed under the block as links to the docs. Setup and work requests get a default list. */
+  terms?: string[]
 }
+
+/** What the coordinator is likely to ask while it sets a team up, and what to answer in this workshop. */
+export type SetupQuestion = { ask: string; answer: string; terms?: string[] }
 
 export type LifecycleStep = {
   id: SetupId
   title: string
   description: string
   request: Prompt
+  questions?: SetupQuestion[]
   expected: string[]
   checkpoint: string
 }
@@ -140,6 +146,38 @@ export const diagramsRequirement = `diagrams>=${diagramsVersion}`
 export const autopilotMode = 'mode="autopilot"'
 export const guideUrl = 'https://peter-n91.github.io/hve-squad-hands-on-workshop/'
 export const docsUrl = 'https://peter-n91.github.io/hve-squad/'
+export const docsPage = (page: string, anchor = '') => `${docsUrl}${page}${anchor ? `#${anchor}` : ''}`
+export const conceptsUrl = docsPage('concepts.html')
+
+/**
+ * A word this guide uses that the HVE Squad documentation explains. Lesson text links a term inline with
+ * [label](term:id); the block under a copied message lists the terms that message uses. The anchors are
+ * ids on the docs' Concepts page (and Usage), so a link goes straight to the section that explains it.
+ */
+export type Term = { id: string; label: string; meaning: string; url: string }
+const messageAnchor = 'init-promote-and-work-requests'
+export const glossary: Term[] = [
+  { id: 'concepts', label: 'core ideas', meaning: 'One ten-minute page that defines every word this guide uses.', url: conceptsUrl },
+  { id: 'init', label: 'init', meaning: 'Creates one team\'s state files after you confirm a proposal. It starts no work.', url: docsPage('concepts.html', messageAnchor) },
+  { id: 'promote', label: 'promote', meaning: 'Turns your one team into the first member of a federation and keeps its history. It starts no work.', url: docsPage('concepts.html', messageAnchor) },
+  { id: 'work-request', label: 'work request', meaning: 'Any other message: the outcome you want. The team researches, plans, builds and reviews it.', url: docsPage('concepts.html', messageAnchor) },
+  { id: 'team', label: 'team', meaning: 'One roster of agents with one plan, one decision log and one history. Also called a squad.', url: docsPage('concepts.html', 'teams-and-federations') },
+  { id: 'federation', label: 'federation', meaning: 'Several independent teams in one repository, with a registry that routes work between them.', url: docsPage('concepts.html', 'teams-and-federations') },
+  { id: 'profile', label: 'profile', meaning: 'The kind of team you create: a ready-made cast of roles for one type of work.', url: docsPage('concepts.html', 'profiles-and-packs') },
+  { id: 'profile-table', label: 'what each profile contains', meaning: 'Every profile and the roles it seeds, in the Usage reference.', url: docsPage('usage.html', 'profiles') },
+  { id: 'pack', label: 'pack', meaning: 'An optional set of technology specialists added on top of a profile. Skip it unless your project uses that technology.', url: docsPage('concepts.html', 'packs-are-optional') },
+  { id: 'autopilot', label: 'autopilot', meaning: 'The team runs research, plan, build and review on its own and asks only for the decisions that matter. Without a mode, a request is interactive: it asks before every step.', url: docsPage('concepts.html', 'autonomy-modes') },
+  { id: 'host-approvals', label: 'your client\'s approvals', meaning: 'Autopilot does not switch off your client\'s own prompts to edit files or run commands.', url: docsPage('concepts.html', 'squad-autopilot-vs-host-approvals') },
+  { id: 'routing', label: 'model routing', meaning: 'How each role\'s AI model is chosen: routing="off", "ranked" or "manual". Not the same as request routing.', url: docsPage('usage.html', 'model-selection-per-role') },
+  { id: 'state', label: 'squad state', meaning: 'The files under .copilot-tracking/squad/ where a team keeps its roster, decisions and history. The chat is not the memory.', url: docsPage('concepts.html', 'state-folder') },
+  { id: 'deliverables', label: 'where deliverables go', meaning: 'The folder each role writes to, and how to change it in team.md.', url: docsPage('concepts.html', 'where-deliverables-go') },
+  { id: 'new-chat', label: 'new conversation', meaning: 'Starting a fresh chat is safe: the squad rereads its files at every turn.', url: docsPage('concepts.html', 'new-chats') },
+  { id: 'coach', label: 'Squad Coach', meaning: 'An advice-only agent that explains HVE Squad and hands you copy-ready messages. It never changes anything.', url: docsPage('concepts.html', 'squad-coach') },
+  { id: 'inputs', label: 'what the squad works from', meaning: 'There is no required folder layout: you name the files the team should read.', url: docsPage('concepts.html', 'inputs') },
+  { id: 'hve-core', label: 'HVE Core', meaning: 'The library of agents and skills that does the engineering work. HVE Squad routes work to it and remembers what happened.', url: docsPage('concepts.html', 'hve-squad-and-hve-core') },
+]
+/** The terms of the Start here panel, in reading order. */
+export const startHereTerms = ['init', 'promote', 'work-request', 'team', 'federation', 'profile', 'pack', 'autopilot', 'routing', 'state']
 
 export const suggestedSquads: Record<SquadKey, string> = {
   productSquad: 'product',
@@ -150,7 +188,7 @@ export const suggestedSquads: Record<SquadKey, string> = {
 
 export const modeRule = {
   title: 'Three kinds of message — and only one uses autopilot',
-  body: 'Setup messages (init and promote) never include mode="autopilot": you confirm each proposal yourself. Work requests always include it, together with the model routing you choose, so the squad runs research → plan → build → review on its own and stops only for approvals that matter. Questions (readiness, status) have no mode at all. The guide adds the right form to every copied block; you never type it yourself.',
+  body: 'Setup messages ([init](term:init) and [promote](term:promote)) never include mode="autopilot": you confirm each proposal yourself. Work requests always include it, together with the [model routing](term:routing) you choose, so the squad runs research → plan → build → review on its own and stops only for the decisions that matter. Without a mode a request would be interactive: the squad would ask before every step. Questions (readiness, status) have no mode at all. The guide adds the right form to every copied block; you never type it yourself. [Autopilot](term:autopilot) is the squad\'s own mode: your client can still ask before it edits a file or runs a command (see [your client\'s approvals](term:host-approvals)).',
 }
 
 export type Routing = 'off' | 'ranked' | 'manual'
@@ -168,6 +206,58 @@ export const modelGuidance = {
 
 export const observationNote = 'These are behaviors to watch for, not instructions to paste. Record what actually happens in your evidence log. If something is missing, note it rather than adding it to the request: that is how we learn what the squad does on its own.'
 
+/** The reading that comes before Part 00: shown on the overview and at the top of Part 00. */
+export const readFirst = {
+  eyebrow: 'Step 0 · before Part 00 · about 10 minutes',
+  title: 'Start here: read the core ideas',
+  body: 'The squad uses a few words from the very first message you send: init, promote, team, federation, profile, pack, autopilot. Each has a short section on one page of the HVE Squad documentation. Read that page once before you install anything. You do not need to remember it: this guide links every term back to its explanation, and each message you copy lists the terms it uses.',
+  action: 'Read the core ideas (10 min)',
+}
+
+/** What each Copilot client is good for in this workshop. The CLI is the recommended path. */
+export const clientAdvice: Record<'cli' | 'app' | 'vscode', string> = {
+  cli: 'Recommended for this workshop: the quickest to start, and the client used in HVE Squad demos.',
+  app: 'A good choice if you would rather not use a terminal.',
+  vscode: 'Also works: choose the squad agent from the agents dropdown in Copilot Chat. For this workshop we recommend the CLI or the App.',
+}
+
+/** Shown after a setup message: why a fresh conversation is safe, and how to start one in each client. {agent} is the agent to select again. */
+export const newConversation = {
+  title: 'Then start a new conversation',
+  why: 'Recommended, and nothing is lost. The squad does not rely on the chat: it keeps its decisions and history in files under .copilot-tracking/squad/ and rereads them at every turn, so a fresh conversation resumes exactly where the files say you are. It also starts with a small context, which keeps the next step focused.',
+  how: {
+    cli: 'In Copilot CLI type /new, then /agent and choose {agent}.',
+    app: 'In the Copilot App start a new chat on the northwind-workshop folder and choose {agent} again.',
+    vscode: 'In VS Code start a new Copilot Chat with the northwind-workshop folder still open and choose {agent} again in the agents dropdown.',
+  },
+}
+
+/** What a setup message does and does not produce, shown before the message so nobody expects the work to start. */
+export const lifecycleExplainers: Record<'init' | 'promote', { title: string; does: string[]; doesNot: string[] }> = {
+  init: {
+    title: 'What init does — and does not do',
+    does: [
+      'Asks a few questions, then proposes the team: its profile, any packs and the names of its roles.',
+      'After you confirm, writes the team\'s state under .copilot-tracking/squad/: the roster (team.md), the decision log (decisions.md), the history folder and its status files.',
+    ],
+    doesNot: [
+      'Start the work: no requirements, backlog, plan or code is produced. That is the work request in the next step.',
+      'Change your own folders, such as knowledge-docs.',
+    ],
+  },
+  promote: {
+    title: 'What promote does — and does not do',
+    does: [
+      'Shows what will move and, after you confirm, relocates the existing team under members/ (its state and its working folders under .copilot-tracking/) and creates federation.md.',
+      'Keeps the team\'s decisions and history: they are moved, not recreated.',
+    ],
+    doesNot: [
+      'Add a new team or start any work.',
+      'Touch your documents or tags: docs/, knowledge-docs and the product/* Git tags stay where they are.',
+    ],
+  },
+}
+
 export type Prerequisite = {
   what: string
   why: string
@@ -181,11 +271,11 @@ export type Prerequisite = {
 
 export const prerequisites: Prerequisite[] = [
   { what: 'GitHub account with Copilot', why: 'Runs every agent in the workshop.', part: 'All parts', check: 'Sign in to your Copilot client', windows: 'Ask your GitHub admin for a Copilot Business or Enterprise seat', mac: 'Same as Windows', scope: 'everyone' },
-  { what: 'One Copilot client', why: 'Where you talk to the squad. Pick one and stay with it.', part: 'All parts', check: 'App opens / copilot --version / VS Code Copilot Chat', windows: 'App: github.com/features/copilot · CLI: winget install GitHub.Copilot · VS Code: code.visualstudio.com', mac: 'App: github.com/features/copilot · CLI: brew install --cask copilot-cli · VS Code: code.visualstudio.com', scope: 'everyone' },
+  { what: 'One Copilot client', why: 'Where you talk to the squad. We recommend Copilot CLI; the App suits people who would rather not use a terminal; VS Code also works. Pick one and stay with it.', part: 'All parts', check: 'copilot --version / App opens / VS Code Copilot Chat', windows: 'CLI: winget install GitHub.Copilot · App: github.com/features/copilot · VS Code: code.visualstudio.com', mac: 'CLI: brew install --cask copilot-cli · App: github.com/features/copilot · VS Code: code.visualstudio.com', scope: 'everyone' },
   { what: 'Git', why: 'Your workshop folder is a Git repository so every change is visible and reversible, and the product releases are Git tags.', part: 'All parts', check: 'git --version', windows: 'winget install --id Git.Git -e', mac: 'xcode-select --install', scope: 'everyone' },
   { what: 'PowerShell 7+ (pwsh)', why: 'The squad\'s Scribe writes the cost ledger and checks it with PowerShell 7 scripts, and model routing uses one too. Windows PowerShell 5.1 is not enough. Without it the squad falls back to slower, less reliable hand-written ledgers.', part: 'All parts', check: 'pwsh --version', windows: 'winget install --id Microsoft.PowerShell -e', mac: 'brew install --cask powershell', scope: 'everyone' },
   { what: `HVE Squad ${squadVersion}`, why: 'The squad coordinators and their specialists. The guide always targets the latest HVE Squad release.', part: 'All parts', check: 'Step 3 below', windows: 'Installed in step 3, per client', mac: 'Installed in step 3, per client', scope: 'everyone' },
-  { what: `APM CLI ${apmCliVersion} (exactly)`, why: 'Installs the /squad prompts into the folder (VS Code), and the Power Platform pack\'s two specialists (any client).', part: 'VS Code users · Power Platform track', check: 'apm --version → 0.29.0', windows: "$env:VERSION = 'v0.29.0'; irm https://aka.ms/apm-windows | iex", mac: 'curl -sSL https://aka.ms/apm-unix | sh -s -- @v0.29.0', scope: 'client' },
+  { what: `APM CLI ${apmCliVersion} (exactly)`, why: 'Installs HVE Squad into the folder (VS Code), and the Power Platform pack\'s two specialists (any client).', part: 'VS Code users · Power Platform track', check: 'apm --version → 0.29.0', windows: "$env:VERSION = 'v0.29.0'; irm https://aka.ms/apm-windows | iex", mac: 'curl -sSL https://aka.ms/apm-unix | sh -s -- @v0.29.0', scope: 'client' },
   { what: 'Azure CLI with Bicep', why: 'Lets you check the infrastructure code locally. No Azure sign-in, no subscription.', part: 'Azure track · Part 05 (recommended)', check: 'az bicep version', windows: 'winget install --id Microsoft.AzureCLI -e, then az bicep install', mac: 'brew install azure-cli, then az bicep install', scope: 'later', track: 'azure' },
   { what: `uv and the Python diagrams library ${diagramsVersion}+`, why: 'The Azure team draws the HLD and LLD with the Python diagrams library and the latest Azure icons (Azure icons V18). uv runs it without a Python setup and fetches the library on first use.', part: 'Azure track · Part 05 (required)', check: `uv run --with "${diagramsRequirement}" python -c "import diagrams.azure.compute"`, windows: 'winget install --id astral-sh.uv -e', mac: 'brew install uv', scope: 'later', track: 'azure' },
   { what: 'Graphviz', why: 'The rendering engine behind the diagrams library. A system program, not a Python package.', part: 'Azure track · Part 05 (required)', check: 'dot -V', windows: `winget install --id Graphviz.Graphviz -e (elevated). winget does not add it to PATH: run [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\\Program Files\\Graphviz\\bin', 'User'), then restart the terminal and your Copilot client`, mac: 'brew install graphviz', scope: 'later', track: 'azure' },
@@ -222,13 +312,18 @@ export const readinessQuestion: Prompt = {
   text: 'Read knowledge-docs/business-case.md, knowledge-docs/current-state.md and knowledge-docs/engineering-standards.md in this repository. Answer in plain language:\n1. What does Northwind want, in two sentences?\n2. Which business areas (BA-) does the case define, and which delivery track owns each one?\n3. What is the hard deadline, and which identifier states it?\n4. Which .NET version does Order Desk use today, according to current-state.md and the projects in src/?\nDo not create or change any files.',
 }
 
+export const coachQuestion: Prompt = {
+  title: 'Ask the Squad Coach (read-only, optional)', kind: 'question', entry: 'squad-coach', terms: ['coach'],
+  text: 'I am about to follow the Northwind hands-on workshop: turn knowledge-docs/business-case.md into product documents with one team, then open a federation with one team per delivery track. In plain language: what do init, promote, a profile and a pack mean, which profile and packs would you pick for the first team, and which message do I send first? Do not change any files.',
+}
+
 const releaseShell: Prompt = {
   title: 'List the release tags', kind: 'shell',
   text: 'git tag -l "product/*"\ngit log --oneline --decorate -3',
 }
 
 export const agenda: { lesson: string; title: string; minutes: number; note?: string; optional?: boolean }[] = [
-  { lesson: 'prepare', title: 'Get ready', minutes: 0, note: 'Before the session · about 30 min' },
+  { lesson: 'prepare', title: 'Get ready', minutes: 0, note: 'Before the session · about 40 min' },
   { lesson: 'orient', title: 'Meet Northwind & the method', minutes: 15 },
   { lesson: 'product', title: 'Shape the product', minutes: 60 },
   { lesson: 'ado', title: 'Publish to Azure DevOps', minutes: 20, optional: true },
@@ -244,14 +339,14 @@ export const agenda: { lesson: string; title: string; minutes: number; note?: st
 export const lessons: Lesson[] = [
   {
     id: 'prepare', number: '00', title: 'Get ready', eyebrow: 'Before the session', minutes: 0,
-    goal: 'Arrive with a working folder, one Copilot client, HVE Squad installed and a strong model selected — so the session is spent learning, not installing.',
-    concept: 'Everything you need is listed once, in the table below, with the part that needs it. You only need the "everyone" rows to start. The rest belong to a track and can wait until the part that uses them.',
-    inputs: ['About 30 minutes', 'Permission to install software on your machine', 'Your GitHub account with Copilot'],
+    goal: 'Arrive having read the core ideas, with a working folder, one Copilot client, HVE Squad installed and a strong model selected — so the session is spent learning, not installing.',
+    concept: 'Everything you need is listed once, in the table below, with the part that needs it. You only need the "everyone" rows to start. The rest belong to a track and can wait until the part that uses them. Before the numbered steps, take ten minutes to read the core ideas: the squad uses a few words from its first message.',
+    inputs: ['About 40 minutes, 10 of them reading the core ideas', 'Permission to install software on your machine', 'Your GitHub account with Copilot'],
     steps: [
       { title: 'Get the starter solution', body: 'Use the button above. In Edge or Chrome you choose a folder on your computer and the guide writes a northwind-workshop folder into it. In other browsers you get a zip file: extract it wherever you like. Nothing is uploaded; the files come from this website.' },
       { title: 'Run the readiness check', body: 'Open a terminal inside the northwind-workshop folder and run the command for your system. It lists what is installed, flags what is missing for each part and track, and turns the folder into a Git repository with a first commit tagged "starter". It installs nothing and is safe to run again.', prompt: readyScript },
-      { title: 'Install HVE Squad in your client', body: 'Follow the panel below for the client selected at the top of the page. Install once, in the client you will actually use. Then confirm that Squad Coordinator and Squad Federation Coordinator both appear in the agent list (App, CLI) or that /squad and /squad-federation appear as prompts (VS Code).' },
-      { title: 'Choose your model and routing', body: 'Select a balanced model at least as capable as Claude Sonnet 5.5 in your client now, and keep it for the whole workshop. Not Auto. Then choose the model routing at the top of this page (Off, Ranked or Manual) — the guide adds it to every work request. Write both in your evidence log.' },
+      { title: 'Install HVE Squad in your client', body: 'Follow the panel below for the client selected at the top of the page. Install once, in the client you will actually use. HVE Squad is installed together with [HVE Core](term:hve-core), which provides the agents and skills that HVE Squad routes your work to: two plugins in the CLI and the App, one APM package in VS Code. Then confirm that Squad Coordinator and Squad Federation Coordinator both appear in your client\'s agent list: /agent in Copilot CLI, the agent list in the App, the agents dropdown in VS Code.' },
+      { title: 'Choose your model and routing', body: 'Select a balanced model at least as capable as Claude Sonnet 5.5 in your client now, and keep it for the whole workshop. Not Auto. Then choose the [model routing](term:routing) at the top of this page (Off, Ranked or Manual) — the guide adds it to every work request. Write both in your evidence log.' },
       { title: 'Check that Copilot can read the case', body: 'Open the northwind-workshop folder in your client. With no squad agent selected, ask the question below. Compare the answer with the documents: three business areas BA-01 to BA-03 owned by the Azure, .NET and Power Platform tracks, the deadline 30 June 2027 (C-01) and .NET Framework 4.8 (CS-01). If the answer is wrong or vague, tell the facilitator before the session.', prompt: readinessQuestion },
     ],
     evidence: ['A northwind-workshop folder that is a Git repository with the tag "starter"', 'The readiness check output', 'The model name and client you will use'],
@@ -260,6 +355,7 @@ export const lessons: Lesson[] = [
       `HVE Squad ${squadVersion} is installed in my client and both coordinators are visible.`,
       'I selected a model at least as capable as Claude Sonnet 5.5 (not Auto) and chose a model routing.',
       'Copilot read the case and correctly gave the business areas, the deadline (C-01) and the current .NET version (CS-01).',
+      'I read the core ideas and can say in one sentence what init, promote, a profile and a pack are.',
     ],
     recovery: 'Tell the facilitator what is blocked before the session. A missing tool for a track or for Part 03 does not stop you from starting: those parts say exactly what they need.',
   },
@@ -270,9 +366,11 @@ export const lessons: Lesson[] = [
     inputs: ['Your northwind-workshop folder open in your client', 'knowledge-docs/business-case.md, section 4 (business areas and delivery tracks)'],
     steps: [
       { title: 'Know the tracks before you choose', body: 'Section 4 of business-case.md lists the business areas and the track that delivers each one. You choose at the start of Part 02 — all tracks, one track or selected tracks — together with how much of the case the product documents cover. The tracks you do not choose are hidden from this guide; you can add one later.' },
-      { title: 'Read the case in five minutes', body: 'Northwind Traders, a food distributor in Lyon, has three business areas. BA-01: leave its data centre before the lease ends on 30 June 2027 (C-01). BA-02: a Customer Portal (BR-01 to BR-12) served by Order Desk, a .NET Framework 4.8 application. BA-03: a delivery-claims process that replaces a shared spreadsheet (BR-14 to BR-19). Every fact has an identifier. That is deliberate: you will use those identifiers to catch invented or missing requirements.' },
-      { title: 'Follow the chain', body: 'Product init → product work (the intake validator checks the case first, then documents and the tagged releases of each track) → (optional) publish to Azure DevOps → promote → for each track you chose: track init → track work → status across teams. Setup and work are always separate messages.' },
-      { title: 'Know the three kinds of message', body: 'Setup (init, promote): no autopilot, you confirm. Work: autopilot plus your model routing, the squad runs the whole pipeline and stops for approvals. Questions: read-only, no mode. The guide labels every block and adds the right form for your client.' },
+      { title: 'Read the case in five minutes', body: 'Northwind Traders, a food distributor in Lyon, has three business areas. BA-01: leave its data centre before the lease ends on 30 June 2027 (C-01). BA-02: a Customer Portal (BR-01 to BR-12) served by Order Desk, a .NET Framework 4.8 application. BA-03: a delivery-claims process that replaces a shared spreadsheet (BR-14 to BR-19). Every fact has an identifier. That is deliberate: you will use those identifiers to catch invented or missing requirements. The folder name knowledge-docs is this workshop\'s own choice: HVE Squad has no required folder layout, you simply name the files the team should read ([what the squad works from](term:inputs)).' },
+      { title: 'Know a team, a profile and a pack', body: 'A [team](term:team) is one roster of agents with one plan, one decision log and one history: the product team and each track team are separate teams, and together they form a [federation](term:federation). When you create a team the squad asks for its [profile](term:profile) — the kind of team, a ready-made cast of roles — and may list optional [packs](term:pack): technology specialists added on top of a profile. You meet these questions in Part 02, with what to answer.' },
+      { title: 'Follow the chain', body: 'Product [init](term:init) → product work (the intake validator checks the case first, then documents and the tagged releases of each track) → (optional) publish to Azure DevOps → [promote](term:promote) → for each track you chose: track init → track work → status across teams. Setup and work are always separate messages: init and promote set a team up and start no work, a [work request](term:work-request) does the work.' },
+      { title: 'Know the three kinds of message', body: 'Setup ([init](term:init), [promote](term:promote)): no autopilot, you confirm. Work: [autopilot](term:autopilot) plus your [model routing](term:routing), the squad runs the whole pipeline and stops for approvals. Questions: read-only, no mode. The guide labels every block, lists the terms it uses and adds the right form for your client.' },
+      { title: 'Optional: meet the Squad Coach', body: 'The [Squad Coach](term:coach) is a read-only guide: it explains HVE Squad in plain words, looks at your folder and tells you which message to send next. It cannot create a team, run work or change a file. It is meant for anyone who is not sure which profile, packs or message fits a goal. This workshop sends fixed messages on purpose, so everyone can compare results; you can skip the Coach and lose nothing. If you are curious, ask it the question below and compare its answer with this guide.', prompt: coachQuestion },
       { title: 'Keep an honest evidence log', body: 'Download the evidence log from Resources. Record what the squad did without being asked, what needed your answer, and what was missing. The checkboxes in this guide are only your own record; they do not inspect your project.' },
     ],
     evidence: ['The evidence log, started, with your client and model'],
@@ -287,11 +385,19 @@ export const lessons: Lesson[] = [
     setup: [{
       id: 'product-team',
       title: '1. Set up the planning team',
-      description: 'Select Squad Coordinator (App, CLI) or use /squad (VS Code). Send the message. The coordinator will offer a single squad or a federation: choose a single squad. Review the proposed team and confirm.',
+      description: 'Select Squad Coordinator (the line above the message says how, in your client). Send the message: it starts with [init](term:init), which creates one [team](term:team) and nothing else. The coordinator asks a few questions, proposes the team and waits for your confirmation; the table below the message says what to answer.',
       request: {
         title: 'Set up a team for the planning work', kind: 'setup', entry: 'squad', lifecycle: 'init',
         text: "init\n\nUse the documents in knowledge-docs at the root of this repository as context: business-case.md, current-state.md and engineering-standards.md. We need to understand Northwind's needs[[full: across the whole business case]][[focused: in the business areas {areaList}]], define business and product requirements, test the riskiest assumptions and prepare a backlog with tagged releases for each delivery track ({trackList}) before any development starts. Set up a single team for this planning work. Stop once the team is ready; I will send the work request next.",
       },
+      questions: [
+        { ask: 'One team or a federation?', answer: 'One team (a single squad). You turn it into a federation in Part 04, when the track teams arrive.', terms: ['team', 'federation'] },
+        { ask: 'Which profile?', answer: 'Accept the one it proposes: product, the profile for business requirements and backlog work. A profile is the kind of team you create, so choosing one chooses its cast of roles. If a name does not tell you enough, ask the coordinator what it contains instead of guessing.', terms: ['profile', 'profile-table'] },
+        { ask: 'Which packs?', answer: 'None. A pack adds specialists for a technology your project is built on, and none fits this planning work. The list may show every pack the squad knows — Foundry, AWS, Microsoft 365 Copilot — because it is a menu, not a recommendation. Choosing no pack is a normal answer.', terms: ['pack'] },
+        { ask: 'Names for the agents?', answer: 'Skip. Keep the default role names.' },
+        { ask: 'How should approvals reach you?', answer: 'In the chat, which is the default.' },
+        { ask: 'Do you confirm the proposed team?', answer: 'Read the roster it shows, then confirm. Nothing is written before you do.' },
+      ],
       expected: [
         'The coordinator proposes the product profile from the purpose of the work, without you naming it.',
         'You confirm, and the team state appears under .copilot-tracking/squad/.',
@@ -302,7 +408,7 @@ export const lessons: Lesson[] = [
     flow: [
       {
         heading: '2. Ask for the product documents and the releases',
-        hint: 'Still with Squad Coordinator. One work request with mode="autopilot", built from your tracks and scope: the squad assesses the case itself — its intake validator looks for gaps and contradictions before anything is drafted — then plans, writes and reviews the documents and proposes the releases of each track. If it asks you something, answer as Northwind using the panel below. It should ask for your approval before it commits and tags the releases.',
+        hint: 'Still with Squad Coordinator. Unlike init, a [work request](term:work-request) starts the real work. This one uses mode="autopilot" ([autopilot](term:autopilot)) and is built from your tracks and scope: the squad assesses the case itself — its intake validator looks for gaps and contradictions before anything is drafted — then plans, writes and reviews the documents and proposes the releases of each track. If it asks you something, answer as Northwind using the panel below. It should ask for your approval before it commits and tags the releases.',
         prompt: {
           title: 'Prepare the product documents and the releases of each track', kind: 'work', entry: 'squad', requiresSetup: ['product-team'],
           text: "Using knowledge-docs at the root of this repository, turn Northwind's business case into documents my teams can review and build from. We deliver through these tracks, each run by its own team that builds only from its own releases: {trackList}.[[full: Cover the whole business case, every business area (BA-) included, so another track can be added later.]][[focused: Cover only the business areas of those tracks — {areaList} — and list the other areas as out of scope.]]\n1. A business requirements document.\n2. A product requirements document covering the planned releases.\n3. A Minimum Viable Experiment for each business area in scope, testing its riskiest assumption before we commit to building.\n4. A prioritized backlog of epics, features and user stories with acceptance criteria, including the enabler work a track needs before its features. Tag every item with the track that delivers it (ES-30).\n5. The releases of each track, in docs/product/releases (ES-31). A track can have several releases, numbered r1, r2… in delivery order: propose how many each track needs from the backlog priorities. Every item planned in a release carries that release's tag as well as its track tag, so the releases stay identifiable wherever the backlog is published — Azure DevOps, GitHub or Jira (ES-39):{releaseList}\nFollow engineering-standards.md for the writing style, the file locations and traceability: cite the source identifier for every requirement and story, label assumptions and open questions, and include the traceability table. Record dependencies between tracks as OPEN items; no release waits for another. When I approve the releases, commit the product documents and create the Git tag of each approved release. I want documents to review, not an implementation.",
@@ -384,16 +490,21 @@ export const lessons: Lesson[] = [
   {
     id: 'federation', number: '04', title: 'Open the federation', eyebrow: 'Single squad → federation', minutes: 10,
     goal: 'Keep the product team and everything it produced, and make room for one team per delivery track you chose.',
-    concept: 'Promotion turns your single squad into the first member of a federation, keeping its decisions and history. Each track team you add next is a separate member with its own roster, decisions and history, and builds only from its own releases — so the track parts that follow can be done in any order, and any of them can be skipped.',
+    concept: '[Promotion](term:promote) turns your single squad into the first member of a [federation](term:federation), keeping its decisions and history. Each track team you add next is a separate member with its own roster, decisions and history, and builds only from its own releases — so the track parts that follow can be done in any order, and any of them can be skipped.',
     inputs: ['Your approved releases in docs/product/releases and their product/* Git tags'],
     setup: [{
       id: 'promote',
       title: '1. Promote the product team',
-      description: 'Switch to Squad Federation Coordinator (App, CLI) or use /squad-federation (VS Code). Send the message, read what will move and confirm.',
+      description: 'Switch to Squad Federation Coordinator (the line above the message says how, in your client). Send the message: it starts with [promote](term:promote), which moves your existing team into a federation and does nothing else. Read what will move and confirm.',
       request: {
         title: 'Keep the product team, make room for the track teams', kind: 'setup', entry: 'squad-federation', lifecycle: 'promote', requiresSetup: ['product-team'], requiresChecks: ['product-3'],
         text: 'promote\n\nWe want to keep this planning team and everything it produced while making room for one team per delivery track ({trackList}) on the same repository. Prepare that transition and name the existing team "{productSquad}". Show me what will change before you move anything. Stop once the existing team is preserved; do not add another team or start new work.',
       },
+      questions: [
+        { ask: 'Which name for the existing team?', answer: 'The one in the message: "{productSquad}". If the squad registers another name, enter it in Session setup.', terms: ['team'] },
+        { ask: 'What will move?', answer: 'The team and its working folders under .copilot-tracking/ (state, decisions, history, research, plans…) move under .copilot-tracking/squad/members/, and the coordinator lists them before you confirm. docs/, knowledge-docs and the product/* tags stay where they are.', terms: ['state'] },
+        { ask: 'Do you confirm?', answer: 'Read the list of what will move, then confirm. Nothing moves before you do.' },
+      ],
       expected: [
         'The existing team becomes the first member of a federation named as you asked; its decisions and history are moved, not recreated.',
         'docs/, knowledge-docs and the product/* tags stay where they are.',
@@ -403,7 +514,7 @@ export const lessons: Lesson[] = [
     }],
     steps: [
       { title: 'Check what moved', body: 'Open .copilot-tracking/squad/. The product team now sits under members/ with its decisions and history, and federation.md lists it with its profile. docs/ and knowledge-docs did not move.' },
-      { title: 'Check the releases did not change', body: 'Promotion moves squad state, never your deliverables. The release tags must still point at the commits you approved.', prompt: { title: 'Check the release tags and the documents', kind: 'shell', text: 'git tag -l "product/*"\ngit status --short docs' } },
+      { title: 'Check the releases did not change', body: 'Promotion moves squad state, never your documents or release tags. The release tags must still point at the commits you approved.', prompt: { title: 'Check the release tags and the documents', kind: 'shell', text: 'git tag -l "product/*"\ngit status --short docs' } },
     ],
     evidence: ['The promotion summary', 'federation.md listing the product team'],
     checks: ['The product team is the first member of the federation, with its decisions and history moved, not recreated.', 'docs/product and the product/* tags are unchanged.'],
@@ -418,11 +529,16 @@ export const lessons: Lesson[] = [
       {
         id: 'migration-team',
         title: '1. Add the Azure team',
-        description: 'Use the federation coordinator. Send the message, review the proposed team and confirm. If the squad registers a different name, update it in Session setup.',
+        description: 'Use the federation coordinator. This is another [init](term:init), this time inside the [federation](term:federation): it adds one team and starts no work. Send the message, review the proposed team and confirm. If the squad registers a different name, update it in Session setup.',
         request: {
           title: 'Add a team for the Azure migration', kind: 'setup', entry: 'squad-federation', lifecycle: 'init', requiresSetup: ['promote'],
           text: 'init\n\nAdd a new team named "{migrationSquad}" to this federation. Its job: plan moving Order Desk and its database from Northwind\'s Lyon data centre to Azure — target architecture, infrastructure as code, cost and the migration plan — from the Azure releases the product team tagged product/azure-r1, product/azure-r2 and so on, starting with product/azure-r1. Use as context knowledge-docs (especially current-state.md, business area BA-01 and the constraints in business-case.md, and the Azure standards in engineering-standards.md), the code in src/, the scripts in database/ and docs/product. Keep the "{productSquad}" team\'s work and responsibilities separate. Set up this team only; I will send the work request next.',
         },
+        questions: [
+          { ask: 'Which profile?', answer: 'Accept the Azure-oriented profile it proposes, most likely azure. It already carries the Azure specialists: Azure architect, infrastructure-as-code author and cost manager.', terms: ['profile', 'profile-table'] },
+          { ask: 'Which packs?', answer: 'None. Azure is a profile here, not a pack: the packs (Power Platform, Microsoft 365 Copilot, AWS, Foundry) are for other technologies. Choosing no pack is a normal answer.', terms: ['pack'] },
+          { ask: 'Do you confirm the proposed team?', answer: 'Read the roster it shows, then confirm. Naming and approval choices are inherited from the federation, so they are usually not asked again.' },
+        ],
         expected: [
           'An Azure-oriented profile is proposed from the purpose of the work, without you naming it.',
           'The new team is registered next to the product team with separate responsibilities.',
@@ -498,11 +614,16 @@ export const lessons: Lesson[] = [
     setup: [{
       id: 'modernization-team',
       title: '1. Add the .NET team',
-      description: 'Use the federation coordinator. Send the message, review the proposed team and confirm. Update the name in Session setup if the squad registers a different one.',
+      description: 'Use the federation coordinator. This is another [init](term:init), inside the [federation](term:federation): it adds one team and starts no work. Send the message, review the proposed team and confirm. Update the name in Session setup if the squad registers a different one.',
       request: {
         title: 'Add a team for the .NET modernization', kind: 'setup', entry: 'squad-federation', lifecycle: 'init', requiresSetup: ['promote'],
         text: 'init\n\nAdd a new team named "{modernizationSquad}" to this federation. Its job: modernize the Order Desk application in src/ from .NET Framework 4.8 to .NET 10, as the enabler of the .NET releases the product team tagged product/dotnet-r1, product/dotnet-r2 and so on, starting with product/dotnet-r1, so it can serve the Customer Portal and run on Azure platform services. Use as context knowledge-docs (especially engineering-standards.md), the solution in src/ and docs/product[[azure:, and, if they exist, the architecture and application-change list of the "{migrationSquad}" team]]. Keep the other teams\' work and responsibilities separate. Set up this team only; I will send the work request next.',
       },
+      questions: [
+        { ask: 'Which profile?', answer: 'Accept the modernization-oriented profile it proposes, most likely modernization: the core team plus a modernizer, architects, an infrastructure-as-code author and a cost manager.', terms: ['profile', 'profile-table'] },
+        { ask: 'Which packs?', answer: 'None. No pack covers .NET modernization, and the packs it may list (Power Platform, Microsoft 365 Copilot, AWS, Foundry) are for other technologies. Choosing no pack is a normal answer.', terms: ['pack'] },
+        { ask: 'Do you confirm the proposed team?', answer: 'Read the roster it shows, then confirm. Naming and approval choices are inherited from the federation, so they are usually not asked again.' },
+      ],
       expected: [
         'A modernization-oriented profile is proposed without you naming it.',
         'The team is registered as a new member of the federation.',
@@ -556,11 +677,16 @@ export const lessons: Lesson[] = [
     setup: [{
       id: 'power-platform-team',
       title: '1. Add the Power Platform team',
-      description: 'Use the federation coordinator. It should propose a profile together with the power-platform pack, and show the install commands of the pack\'s two specialists. Run them in a terminal inside the northwind-workshop folder (add --target copilot if APM reports "No harness detected"), reload your client if needed, then confirm. If you cannot install them, go on without those roles and record it.',
+      description: 'Use the federation coordinator. This is another [init](term:init), inside the [federation](term:federation): it adds one team and starts no work. It should propose a [profile](term:profile) together with the power-platform [pack](term:pack), and show the install commands of the pack\'s two specialists. Run them in a terminal inside the northwind-workshop folder (add --target copilot if APM reports "No harness detected"), reload your client if needed, then confirm. If you cannot install them, go on without those roles and record it.',
       request: {
         title: 'Add a team for the delivery-claims solution', kind: 'setup', entry: 'squad-federation', lifecycle: 'init', requiresSetup: ['promote'],
         text: 'init\n\nAdd a new team named "{powerPlatformSquad}" to this federation. Its job: design the delivery-claims solution of business area BA-03 on Power Platform — Power Apps, Power Automate and Dataverse — from the Power Platform releases the product team tagged product/power-platform-r1, product/power-platform-r2 and so on, starting with product/power-platform-r1. Use as context knowledge-docs (especially BA-03 in business-case.md, the claims facts in current-state.md and the Power Platform standards in engineering-standards.md) and docs/product. Keep the other teams\' work and responsibilities separate. Set up this team only; I will send the work request next.',
       },
+      questions: [
+        { ask: 'Which profile?', answer: 'Accept the profile it proposes. The profile is the kind of team; the Power Platform expertise comes from the pack below.', terms: ['profile', 'profile-table'] },
+        { ask: 'Which packs?', answer: 'Yes to power-platform: it is the one pack that fits this track, and it adds two specialists (pp-architect and pp-connector) that you install with the commands shown. Skip Microsoft 365 Copilot, AWS and Foundry: they are for other technologies.', terms: ['pack'] },
+        { ask: 'Do you confirm the proposed team?', answer: 'Read the roster it shows, then confirm. Naming and approval choices are inherited from the federation, so they are usually not asked again.' },
+      ],
       expected: [
         'A profile is proposed together with the power-platform pack, because the request names the platform.',
         'The pack\'s specialists are offered with their exact install commands, origin and licence — not seeded before they are installed.',
@@ -626,9 +752,9 @@ export const lessons: Lesson[] = [
     inputs: ['The same northwind-workshop folder', 'Your evidence log'],
     flow: [{
       heading: 'Ask for the status across teams',
-      hint: 'Open a new conversation and select Squad Federation Coordinator, or use /squad-federation. This is a read-only question: no squad target and no mode. The guide lists the teams of the tracks you chose.',
+      hint: 'Open a [new conversation](term:new-chat) and select Squad Federation Coordinator. This works because the squad keeps its memory in files, not in the chat: it finds the federation and each team\'s history by itself. This is a read-only question: no squad target and no mode. The guide lists the teams of the tracks you chose.',
       prompt: {
-        title: 'Where are we, across all teams?', kind: 'question', entry: 'squad-federation', requiresSetup: ['promote', 'migration-team', 'modernization-team', 'power-platform-team'],
+        title: 'Where are we, across all teams?', kind: 'question', entry: 'squad-federation', terms: ['federation', 'state'], requiresSetup: ['promote', 'migration-team', 'modernization-team', 'power-platform-team'],
         text: 'Let\'s take stock across all teams. For each team — {teamList} — tell me what it produced, what was reviewed and what is still open. Then check consistency: is every story of each track release in docs/product/releases covered by that track\'s work or listed as remaining, and is every dependency between tracks recorded as an OPEN item rather than assumed?[[azure+dotnet: Is every application change listed by "{migrationSquad}" either done by "{modernizationSquad}" or listed as remaining?]] Cite the files you used. Do not change anything; end with the three most useful next actions.',
       },
     }],
@@ -639,7 +765,7 @@ export const lessons: Lesson[] = [
     ],
     steps: [
       { title: 'Verify one claim per team', body: 'Pick one statement about each team and open the file it cites. Is it true?' },
-      { title: 'Optional: a governance report', body: 'VS Code: run /squad-governance-report. App and CLI: ask the federation coordinator to "generate the squad governance report for the whole federation under docs/". It summarizes gates, council verdicts, dispatches and estimated cost — useful evidence for the discussion.' },
+      { title: 'Optional: a governance report', body: 'Ask the federation coordinator to "generate the squad governance report for the whole federation under docs/". It summarizes gates, council verdicts, dispatches and estimated cost — useful evidence for the discussion.' },
       { title: 'Ask your own next question', body: 'Ask something real in your own words, for example how the portal or the claims app would call Order Desk. Observe which team the coordinator routes it to and why.' },
     ],
     evidence: ['The cross-team status answer', 'One verified claim per team', 'Optionally, the governance report'],
@@ -667,6 +793,8 @@ export const lifecycleSteps = lessons.flatMap(lesson =>
 )
 
 export const troubleshooting: [string, string][] = [
+  ['What do init, promote, a profile or a pack mean?', 'Read the [core ideas](term:concepts) page once: every term has its own section. In short, [init](term:init) creates one team and starts no work, [promote](term:promote) turns your team into the first member of a [federation](term:federation), a [profile](term:profile) is the kind of team you create, and a [pack](term:pack) is an optional technology add-on.'],
+  ['Which Copilot client should I use?', 'Copilot CLI is recommended: it is the quickest to start and the client used in HVE Squad demos. The Copilot App suits people who would rather not use a terminal. VS Code also works: install HVE Squad with APM, then choose the squad agent from the agents dropdown in Copilot Chat. In every client the messages are the same; only the way you select the agent differs.'],
   ['The starter button only downloads a zip', 'Your browser cannot write to folders (Firefox and Safari). Extract the zip wherever you want the workshop folder; it contains a single northwind-workshop folder.'],
   ['The folder already exists', 'The guide never overwrites. Choose another location, or rename the existing folder first.'],
   ['Which tracks should I choose?', 'The tracks your practice delivers. Azure and .NET work on the legacy code; Power Platform is about licences, data and approvals. They are independent, so one track is enough for a first run. In a group, split the tracks across tables.'],
@@ -675,8 +803,11 @@ export const troubleshooting: [string, string][] = [
   ['How do I build a track\'s next release?', 'Each track part builds the first release (r1). For the next one, send the same work request to the same team again, replacing r1 with r2 in the release tag and file name. The team keeps its history, so it builds on what it did for r1.'],
   ['How do the release tags map to GitHub or Jira?', 'ES-39 in engineering-standards.md: in Azure DevOps the track and release tags are work-item tags; in GitHub they are issue labels, and each release is also a milestone; in Jira they are labels, and each release is also a fix version. The Git tag product/<track>-r<n> always marks the approved documents of that release.'],
   ['git commit asks who I am', 'Set an identity for this folder only: git config user.name "Your Name" and git config user.email you@example.com. Then commit again.'],
-  ['Which agent do I select?', 'Parts 02–03: Squad Coordinator (VS Code: /squad). Parts 04–08: Squad Federation Coordinator (VS Code: /squad-federation). Part 00 readiness question: no squad agent. In VS Code, pick the prompt "Hands a request to…", not the skill with the same name.'],
-  ['The coordinators are missing from the agent list', 'Check the client you actually use: the App and the CLI can have different plugin homes. Both hve-squad and hve-squad-hve-core must be installed. Do not also install the official hve-core plugin.'],
+  ['Which agent do I select?', 'Parts 02–03: Squad Coordinator. Parts 04–08: Squad Federation Coordinator. The optional Squad Coach in Part 01: Squad Coach. The Part 00 readiness question: no squad agent. Select the agent in your client — /agent in Copilot CLI, the agent list in the App, the agents dropdown in VS Code Copilot Chat — then paste the message.'],
+  ['The coordinators are missing from the agent list', 'Check the client you actually use: the App and the CLI can have different plugin homes. Both hve-squad and hve-squad-hve-core must be installed. Do not also install the official hve-core plugin. In VS Code, reload the window after the APM install and open the agents dropdown again.'],
+  ['The coordinator lists packs I do not use (Foundry, AWS, Microsoft 365 Copilot…)', '[Packs](term:pack) are optional add-ons, not alternatives to the profile. The list is a menu of everything the squad knows, not a recommendation, so choose none unless your project uses that technology. In this workshop only the Power Platform track uses a pack (power-platform). If you do not know what an option does, answer in your own words and ask the coordinator to explain it before you choose.'],
+  ['Should I start a new conversation after init or promote?', 'It is recommended, and it is safe. The squad keeps its decisions and history in files under .copilot-tracking/squad/ and rereads them at every turn, so a fresh conversation resumes exactly where the files say you are; the chat itself is not the memory. In the new conversation select the same agent again and send the next message. See [starting a new chat](term:new-chat) in the docs.'],
+  ['Where did the squad write its files?', 'Each role writes to a fixed folder: research under .copilot-tracking/research/, plans under .copilot-tracking/plans/, changes under .copilot-tracking/changes/, reviews under .copilot-tracking/reviews/; the technical writer writes under docs/ and the architects under docs/architecture/. The team\'s own state (roster, decisions, history) is under .copilot-tracking/squad/, and in a federation each member\'s folders sit under its own members/ folder. You can change where a role writes by editing its Deliverable Root cell in team.md: see [where deliverables go](term:deliverables).'],
   ['"No squad state detected"', 'Normal before Part 02. The coordinator will propose a team when you send the first setup message.'],
   ['The Power Platform specialists are not installed', `The power-platform pack's two roles rest on agents from github/awesome-copilot that you install with the commands the coordinator shows (APM CLI ${apmCliVersion}; add --target copilot if APM says "No harness detected"). Until they are installed the coordinator does not seed them. You can go on without them; record it.`],
   ['The squad convened a council that is not in the team or not logged', 'Record it in your evidence log: what triggered it, which roles took part, and whether decisions.md has an entry. Then ask the coordinator where the council is recorded. If it is not, report it as a GitHub issue with that evidence.'],
@@ -697,10 +828,15 @@ export const troubleshooting: [string, string][] = [
 
 export const sources = [
   { name: `HVE Squad v${squadVersion} documentation`, url: docsUrl },
+  { name: 'Core ideas: the terms behind every message (read first)', url: conceptsUrl },
+  { name: 'Core ideas: init, promote and work requests', url: docsPage('concepts.html', messageAnchor) },
+  { name: 'Core ideas: profiles and packs', url: docsPage('concepts.html', 'profiles-and-packs') },
+  { name: 'Core ideas: interactive and autopilot', url: docsPage('concepts.html', 'autonomy-modes') },
+  { name: 'Core ideas: where the squad keeps its memory', url: docsPage('concepts.html', 'durable-state') },
   { name: `HVE Squad v${squadVersion} release notes`, url: squadReleaseUrl },
   { name: 'Getting started: install per client', url: `${docsUrl}getting-started.html` },
   { name: 'Usage: profiles, packs, federation, promotion and autopilot', url: `${docsUrl}usage.html` },
-  { name: 'Usage: model selection per role (routing=)', url: `${docsUrl}usage.html#model-selection-per-role-routing` },
+  { name: 'Usage: model selection per role (routing=)', url: `${docsUrl}usage.html#model-selection-per-role` },
   { name: 'Demo: Product squad', url: `${docsUrl}demo-3.html` },
   { name: 'Demo: Migration autopilot', url: `${docsUrl}demo-2.html` },
   { name: 'Demo: Modernize .NET', url: `${docsUrl}demo-4.html` },
