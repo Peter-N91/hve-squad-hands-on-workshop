@@ -28,8 +28,8 @@ Published at <https://peter-n91.github.io/hve-squad-hands-on-workshop/>.
 
 | Path | Contents |
 |---|---|
-| `src/content.ts` | The delivery tracks, and every lesson, request, review key, prerequisite and troubleshooting entry. Edit this to change the workshop. |
-| `src/state.ts` | Browser progress, Session setup (tracks, scope, team names), setup-chain locking and the pure request renderer for Copilot App, CLI and VS Code. |
+| `src/content.ts` | The delivery tracks, and every lesson, request, review key, prerequisite, troubleshooting entry and the glossary that links each term to the HVE Squad docs. Edit this to change the workshop. |
+| `src/state.ts` | Browser progress, Session setup (tracks, scope, team names), setup-chain locking and the pure request renderer. Copilot CLI, App and VS Code get the same message; only the way you select the agent differs. |
 | `src/hve-squad-release.ts` | Generated: the latest stable HVE Squad release the guide targets. |
 | `scripts/hve-squad-release.mjs` | Asks GitHub for the latest stable `Peter-N91/hve-squad` release and regenerates `src/hve-squad-release.ts`. Runs before `dev`, `build` and the starter; keeps the committed value when offline or with `HVE_SQUAD_RELEASE_OFFLINE=1`. |
 | `src/starter.ts` | The one-button starter: writes the folder through the File System Access API, or falls back to a zip download. |
@@ -62,6 +62,20 @@ npm run preview -- --host 127.0.0.1
 
 Lesson and prompt text can adapt to the participant's choices with `{trackList}`, `{areaList}`,
 `{teamList}`, `{releaseTags}`, `{releaseList}` and `[[condition:text]]` (see `src/content.ts`).
+
+## Link terms to the HVE Squad docs
+
+The guide never explains a squad term on its own: it links it to the section of the HVE Squad
+documentation that does (mostly the Concepts page, `docs/concepts.html` in `Peter-N91/hve-squad`).
+
+- `glossary` in `src/content.ts` maps a term id to its label, one-sentence meaning and docs URL. The anchors
+  are heading ids on the docs pages: when you rename one there, change it here.
+- In lesson, step, hint and FAQ text, write `[label](term:id)` to turn words into a link. Keep it out of
+  anything a participant pastes: messages stay plain text, and a test fails if the markup leaks into one.
+- Under every setup and work message the guide lists the terms it uses. The defaults come from the kind of
+  message (`promptTermIds` in `src/state.ts`); set `terms` on a prompt to override them.
+- A team setup step can carry `questions`: what the coordinator is likely to ask (profile, packs, names…) and
+  what to answer in this workshop.
 
 ## HVE Squad version
 

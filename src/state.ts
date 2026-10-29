@@ -1,10 +1,10 @@
 import {
-  agenda, autopilotMode, lessons, lifecycleSteps, prerequisites, releaseFile, releaseName, releaseTag, routingOptions, scopeOptions, suggestedSquads,
+  agenda, autopilotMode, glossary, lessons, lifecycleSteps, newConversation, prerequisites, releaseFile, releaseName, releaseTag, routingOptions, scopeOptions, suggestedSquads,
   trackIds, trackModeOptions, trackTag, tracks,
 } from './content.ts'
-import type { Answer, Lesson, Prompt, Routing, Scope, SetupId, SquadKey, Track, TrackId, TrackMode } from './content.ts'
+import type { Answer, Lesson, Prompt, Routing, Scope, SetupId, SquadKey, Term, Track, TrackId, TrackMode } from './content.ts'
 
-export const clients = ['app', 'cli', 'vscode'] as const
+export const clients = ['cli', 'app', 'vscode'] as const
 export type Client = typeof clients[number]
 export const clientLabels: Record<Client, string> = { app: 'Copilot App', cli: 'Copilot CLI', vscode: 'VS Code' }
 
@@ -178,6 +178,38 @@ export function missingPublication(settings: Settings) {
   return requiredPublicationFields.filter(key => !settings[key].trim())
 }
 
+export function termById(id: string): Term {
+  const term = glossary.find(candidate => candidate.id === id)
+  if (!term) throw new Error(`Unknown glossary term: ${id}.`)
+  return term
+}
+
+/** A term written in lesson text as [label](term:id): it becomes a link to the docs section that explains it. */
+const termLink = /\[([^\]\n]+)\]\(term:([a-z-]+)\)/g
+export type TextPart = string | { term: Term; label: string }
+export function termParts(text: string): TextPart[] {
+  const parts: TextPart[] = []
+  let last = 0
+  for (const match of text.matchAll(termLink)) {
+    if (match.index > last) parts.push(text.slice(last, match.index))
+    parts.push({ term: termById(match[2]), label: match[1] })
+    last = match.index + match[0].length
+  }
+  if (last < text.length) parts.push(text.slice(last))
+  return parts
+}
+export const stripTerms = (text: string) => text.replace(termLink, '$1')
+
+/** The terms listed under a copied message: its own list, or the ones its kind of message always uses. */
+export function promptTermIds(prompt: Pick<Prompt, 'kind' | 'lifecycle' | 'entry' | 'terms'>): string[] {
+  if (prompt.terms) return prompt.terms
+  if (prompt.kind === 'work') return ['work-request', 'autopilot', 'routing']
+  if (prompt.kind !== 'setup') return []
+  if (prompt.lifecycle === 'promote') return ['promote', 'federation', 'state']
+  return prompt.entry === 'squad-federation' ? ['init', 'team', 'federation', 'profile', 'pack'] : ['init', 'team', 'profile', 'pack']
+}
+export const promptTerms = (prompt: Pick<Prompt, 'kind' | 'lifecycle' | 'entry' | 'terms'>) => promptTermIds(prompt).map(termById)
+
 export function checkLabel(id: string) {
   const split = id.lastIndexOf('-')
   const lesson = lessons.find(item => item.id === id.slice(0, split))
@@ -238,7 +270,7 @@ export function promptBlockers(prompt: Prompt, settings: Settings, checked: stri
   for (const id of prompt.requiresChecks ?? []) {
     if (checked.includes(id)) continue
     const { lesson, text } = checkLabel(id)
-    issues.push(`Part ${lesson.number} checkpoint: "${fillNames(text, settings)}"`)
+    issues.push(`Part ${lesson.number} checkpoint: "${stripTerms(fillNames(text, settings))}"`)
   }
   if (prompt.kind !== 'shell') {
     for (const key of referencedSquads(prompt, settings)) {
@@ -289,37 +321,30 @@ export function renderPrompt(prompt: Prompt, settings: Settings = defaults): str
     if (error) throw new Error(`${squadLabels[prompt.squadTarget]}: ${error}`)
     squadOption = ` squad=${JSON.stringify(settings[prompt.squadTarget].trim())}`
   }
-  const entry = prompt.entry ?? 'squad'
-  const workOptions = `${autopilotMode} ${routingOption(settings)}${squadOption}`
-
-  if (settings.experience !== 'vscode') {
-    return prompt.kind === 'work' ? `${workOptions}\n\n${text}` : text
-  }
-  if (prompt.kind === 'setup' && entry === 'squad-federation' && prompt.lifecycle) {
-    const firstBreak = text.indexOf('\n')
-    const body = firstBreak >= 0 && text.slice(0, firstBreak).trim() === prompt.lifecycle ? text.slice(firstBreak + 1).trimStart() : text
-    return `/${entry} ${prompt.lifecycle} request=${JSON.stringify(body)}`
-  }
-  const options = prompt.kind === 'work' ? ` ${workOptions}` : ''
-  // JSON quoting keeps quotes, backslashes and line breaks inside a single request argument.
-  return `/${entry}${options} request=${JSON.stringify(text)}`
+  if (prompt.kind !== 'work') return text
+  return `${autopilotMode} ${routingOption(settings)}${squadOption}\n\n${text}`
 }
 
 export function routingOption(settings: Pick<Settings, 'routing'>) {
   return `routing=${JSON.stringify(settings.routing)}`
 }
 
-export function agentSelection(prompt: Pick<Prompt, 'entry' | 'kind'>, settings: Settings) {
+const agents = {
+  squad: { name: 'Squad Coordinator', pluginId: 'squad-coordinator' },
+  'squad-federation': { name: 'Squad Federation Coordinator', pluginId: 'squad-federation-coordinator' },
+  'squad-coach': { name: 'Squad Coach', pluginId: 'squad-coach' },
+} as const
+
+/** Every client receives the same message: only the way you select the agent differs. */
+export function agentSelection(prompt: Pick<Prompt, 'entry' | 'kind'>, settings: Pick<Settings, 'experience'>) {
   if (prompt.kind === 'plain') {
-    return { name: 'Default Copilot agent', identifier: '', instruction: 'Use the default Copilot agent: do not select a squad agent or prompt for this question.' }
+    return { name: 'Default Copilot agent', identifier: '', instruction: 'Use the default Copilot agent: do not select a squad agent for this question.' }
   }
-  const federation = prompt.entry === 'squad-federation'
-  const name = federation ? 'Squad Federation Coordinator' : 'Squad Coordinator'
+  const { name, pluginId } = agents[prompt.entry ?? 'squad']
   if (settings.experience === 'vscode') {
-    const identifier = federation ? '/squad-federation' : '/squad'
-    return { name, identifier, instruction: `In VS Code Copilot Chat, paste the whole block: it starts with ${identifier}. Pick the prompt, not the skill with the same name.` }
+    return { name, identifier: name, instruction: `In VS Code Copilot Chat, choose ${name} in the agents dropdown, then paste the message.` }
   }
-  const identifier = `hve-squad:${federation ? 'squad-federation-coordinator' : 'squad-coordinator'}`
+  const identifier = `hve-squad:${pluginId}`
   return {
     name, identifier,
     instruction: settings.experience === 'cli'
@@ -327,6 +352,10 @@ export function agentSelection(prompt: Pick<Prompt, 'entry' | 'kind'>, settings:
       : `In the Copilot App, open the agent list and choose ${name} (it may show as ${identifier}).`,
   }
 }
+
+/** How to start a fresh conversation in the client and select the agent of the next message again. */
+export const newConversationHow = (prompt: Pick<Prompt, 'entry' | 'kind'>, settings: Pick<Settings, 'experience'>) =>
+  newConversation.how[settings.experience].replace('{agent}', agentSelection(prompt, settings).name)
 
 export function nextClient(current: Client, key: string): Client | undefined {
   if (key === 'Home') return clients[0]
