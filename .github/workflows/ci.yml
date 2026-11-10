@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      HVE_SQUAD_RELEASE_REQUIRED: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

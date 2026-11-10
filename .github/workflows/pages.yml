@@ -1,8 +1,10 @@
 name: Publish workshop guide
-# Manual, daily, or on a repository_dispatch from hve-squad when it publishes a release.
+# On main pushes, manually, daily, or when hve-squad dispatches a release notification.
 # Every build asks GitHub for the latest stable HVE Squad release (scripts/hve-squad-release.mjs),
 # so the published guide always names, installs and links that release.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: '17 5 * * *'
@@ -18,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      HVE_SQUAD_RELEASE_REQUIRED: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

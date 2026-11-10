@@ -39,8 +39,17 @@ Each track's team builds from its own releases and never waits for another track
 3. Run the readiness check:
    - Windows: `powershell -ExecutionPolicy Bypass -File tools\ready.ps1`
    - macOS or Linux: `bash tools/ready.sh`
-4. Fix anything marked **MISSING** that the guide says you need for the parts you will do.
+4. Fix anything marked **MISSING**, **LEGACY**, **WRONG VERSION**, **UNVERIFIED** or **CHECK FAILED**
+   that the guide says you need for the parts you will do. The CLI check expects the single
+   `hve-squad@hve-squad` plugin at **v{{HVE_SQUAD_VERSION}}** from
+   `Peter-N91/hve-squad#plugin`, with HVE Core bundled. Remove the retired two-plugin installation
+   before migrating. App and VS Code plugin versions must be checked inside their own client;
+   the CLI cannot verify them. APM is only needed for the repository-local fallback or optional
+   external Power Platform Alternates or optional registered skills; local Primary agents are bundled.
 5. Open this folder in your Copilot client and continue with Part 01 of the guide.
+
+If you saved this folder for an older workshop, download a fresh starter from the guide to get
+the current readiness scripts. Updating the plugin does not update a previously downloaded script.
 
 ## Ground rules
 

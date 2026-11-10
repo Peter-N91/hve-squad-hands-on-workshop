@@ -28,18 +28,19 @@ else row "PowerShell 7+" "All parts" "MISSING" "Scribe ledger and routing need i
 
 if command -v copilot >/dev/null 2>&1; then
   row "GitHub Copilot CLI" "CLI client only" "OK" "$(first copilot --version)"
-  plugins="$(copilot plugin list 2>&1)"
-  squad=0; core=0
-  echo "$plugins" | grep -q 'hve-squad@hve-squad-plugin' && squad=1
-  echo "$plugins" | grep -q 'hve-squad-hve-core@hve-squad-plugin' && core=1
-  if [ $squad -eq 1 ] && [ $core -eq 1 ]; then
-    version="$(echo "$plugins" | sed -n 's/.*hve-squad@hve-squad-plugin *(v\{0,1\}\([0-9][0-9.]*\)).*/\1/p' | head -n 1)"
+  plugins="$(copilot plugin list 2>&1)"; plugin_status=$?
+  if [ "$plugin_status" -ne 0 ]; then
+    row "HVE Squad plugin" "CLI client only" "CHECK FAILED" "copilot plugin list failed. Run it in this terminal and resolve the error."
+  elif echo "$plugins" | grep -Eq '(^|[^[:alnum:]_-])(hve-squad|hve-squad-hve-core)@hve-squad-plugin([[:space:]]|$)'; then
+    row "HVE Squad plugin" "CLI client only" "LEGACY" "Remove the retired two-plugin installation, then install hve-squad@hve-squad (Part 00, step 3)."
+  elif echo "$plugins" | grep -Eq '(^|[^[:alnum:]_-])hve-squad@hve-squad([[:space:]]|$)'; then
+    version="$(echo "$plugins" | sed -nE 's/.*hve-squad@hve-squad[[:space:]]*\(v?([0-9]+\.[0-9]+\.[0-9]+)\).*/\1/p' | head -n 1)"
     case "$version" in
-      ''|{{HVE_SQUAD_MINOR}}.*) row "HVE Squad plugin pair" "CLI client only" "OK" "hve-squad v$version + hve-squad-hve-core installed" ;;
-      *) row "HVE Squad plugin pair" "CLI client only" "WRONG VERSION" "hve-squad v$version - the guide is built for {{HVE_SQUAD_VERSION}} (Part 00, step 3)" ;;
+      '') row "HVE Squad plugin" "CLI client only" "UNVERIFIED" "Could not read the hve-squad version. Check copilot plugin list (Part 00, step 3)." ;;
+      {{HVE_SQUAD_VERSION}}) row "HVE Squad plugin" "CLI client only" "OK" "hve-squad@hve-squad v$version installed (HVE Core bundled)" ;;
+      *) row "HVE Squad plugin" "CLI client only" "WRONG VERSION" "hve-squad v$version - the guide is built for {{HVE_SQUAD_VERSION}} (Part 00, step 3)" ;;
     esac
-  elif [ $squad -eq 1 ] || [ $core -eq 1 ]; then row "HVE Squad plugin pair" "CLI client only" "INCOMPLETE" "Install both entries (guide, Part 00)"
-  else row "HVE Squad plugin pair" "CLI client only" "MISSING" "See guide, Part 00, step 3"; fi
+  else row "HVE Squad plugin" "CLI client only" "MISSING" "Install hve-squad@hve-squad from Peter-N91/hve-squad#plugin (Part 00, step 3)."; fi
 else
   row "GitHub Copilot CLI" "CLI client only" "NOT FOUND" "Skip if you use the App or VS Code. Install: brew install --cask copilot-cli"
 fi
@@ -67,10 +68,10 @@ else row "Graphviz" "Azure track" "MISSING" "Install: brew install graphviz"; fi
 
 if command -v apm >/dev/null 2>&1; then
   v="$(first apm --version)"
-  if echo "$v" | grep -q '0\.29\.0'; then row "APM CLI" "VS Code, Power Platform" "OK" "$v"
-  else row "APM CLI" "VS Code, Power Platform" "WRONG VERSION" "$v - the workshop needs exactly 0.29.0"; fi
+  if echo "$v" | grep -q '0\.29\.0'; then row "APM CLI" "APM fallback, PP track" "OK" "$v"
+  else row "APM CLI" "APM fallback, PP track" "WRONG VERSION" "$v - the workshop needs exactly 0.29.0 for APM only"; fi
 else
-  row "APM CLI" "VS Code, Power Platform" "NOT FOUND" "Needed for VS Code, or to install the Power Platform specialists. Otherwise skip"
+  row "APM CLI" "APM fallback, PP track" "NOT FOUND" "Only for the repository-local APM fallback or optional external pack resources. The plugin and local Primaries do not need it."
 fi
 
 echo

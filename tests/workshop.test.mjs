@@ -1,9 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import {
   agenda, autopilotMode, clientAdvice, coachQuestion, conceptsUrl, diagramsRequirement, diagramsVersion, docsUrl, glossary, installation, lessons, lifecycleExplainers, lifecycleSteps,
-  modeRule, newConversation, prerequisites, readFirst, readinessQuestion, readyScript, releaseName, releaseTag, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion,
+  modeRule, newConversation, pluginId, pluginMarketplace, prerequisites, readFirst, readinessQuestion, readyScript, releaseName, releaseTag, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion,
   startHereTerms, suggestedSquads, trackIds, trackModeOptions, tracks, troubleshooting,
 } from '../src/content.ts'
 import { hveSquadRelease } from '../src/hve-squad-release.ts'
@@ -14,10 +16,10 @@ import {
   visiblePrerequisites,
 } from '../src/state.ts'
 import { applyRelease, collectStarter, crc32, createZip, starterFolder } from '../scripts/build-starter.mjs'
-import { parseRelease, readCommittedRelease, renderReleaseModule } from '../scripts/hve-squad-release.mjs'
+import { parseRelease, readCommittedRelease, renderReleaseModule, resolveRelease } from '../scripts/hve-squad-release.mjs'
 
 const allPrompts = [
-  readinessQuestion, readyScript, installation.cli, installation.cliUpdate, installation.apm,
+  readinessQuestion, readyScript, installation.cli, installation.cliUpdate, installation.cliMigrate, installation.apm,
   ...lessons.flatMap(lesson => [
     ...(lesson.setup ?? []).map(step => step.request),
     ...(lesson.flow ?? []).map(item => item.prompt),
@@ -527,12 +529,12 @@ test('the starter is clean, normalized and checks the latest HVE Squad release',
     else assert.ok(!file.content.includes('\r'), `${file.path} uses LF`)
     assert.doesNotMatch(file.content, /\{\{HVE_SQUAD_/, `${file.path} has no unresolved release placeholder`)
   }
-  const minor = squadVersion.split('.').slice(0, 2).join('.')
   for (const script of ['tools/ready.ps1', 'tools/ready.sh']) {
     assert.match(starterText(script), /git tag starter/)
     assert.match(starterText(script), /refs\/tags\/starter/, `${script} repairs a missing tag`)
     assert.match(starterText(script), /commit\.gpgsign=false/, `${script} never prompts for signing`)
-    assert.ok(starterText(script).includes(`${minor}.*`), `${script} accepts ${minor}.x`)
+    assert.ok(starterText(script).includes(pluginId), `${script} checks the self-contained plugin`)
+    assert.ok(starterText(script).includes('UNVERIFIED'), `${script} never accepts an unreadable version`)
     assert.ok(starterText(script).includes(`the guide is built for ${squadVersion}`), `${script} names ${squadVersion}`)
   }
   assert.equal(applyRelease('{{HVE_SQUAD_MINOR}}.* / {{HVE_SQUAD_VERSION}}', '1.2.3'), '1.2.* / 1.2.3')
@@ -565,7 +567,14 @@ test('the guide targets one HVE Squad release, everywhere', async () => {
   assert.equal(squadVersion, hveSquadRelease.version)
   assert.equal(squadReleaseUrl, `https://github.com/Peter-N91/hve-squad/releases/tag/v${squadVersion}`)
   assert.match(installation.apm.text, new RegExp(`hve-squad#v${squadVersion.replaceAll('.', '\\.')}`))
-  assert.match(installation.cli.text, /hve-squad-hve-core@hve-squad-plugin/)
+  assert.ok(installation.cli.text.includes(`marketplace add ${pluginMarketplace}`))
+  assert.ok(installation.cli.text.includes(`plugin install ${pluginId}`))
+  assert.doesNotMatch(installation.cli.text, /hve-squad-plugin|hve-squad-hve-core/)
+  assert.ok(installation.cliUpdate.text.includes('marketplace update hve-squad'))
+  assert.ok(installation.cliUpdate.text.includes(`plugin update ${pluginId}`))
+  assert.doesNotMatch(installation.cliUpdate.text, /hve-squad-plugin|hve-squad-hve-core/)
+  assert.ok(installation.cliMigrate.text.endsWith(installation.cli.text))
+  assert.match(installation.cliMigrate.text, /uninstall hve-squad@hve-squad-plugin\ncopilot plugin uninstall hve-squad-hve-core@hve-squad-plugin\ncopilot plugin marketplace remove hve-squad-plugin/)
   assert.ok(sources.some(source => source.url === squadReleaseUrl))
   assert.ok(prerequisites.some(item => item.what === `HVE Squad ${squadVersion}`))
   const committed = await readCommittedRelease()
@@ -575,6 +584,75 @@ test('the guide targets one HVE Squad release, everywhere', async () => {
   assert.deepEqual(parseRelease(release), { version: '9.8.7', tag: 'v9.8.7', url: release.html_url, publishedAt: release.published_at })
   assert.throws(() => parseRelease({ ...release, prerelease: true }), /pre-release/)
   assert.throws(() => parseRelease({ ...release, tag_name: 'v0.19.0-pre' }), /unexpected release tag/)
+})
+
+test('release discovery uses the latest stable upstream release and surfaces lookup failures', async () => {
+  const release = { tag_name: 'v0.20.0', html_url: 'https://github.com/Peter-N91/hve-squad/releases/tag/v0.20.0', published_at: '2026-11-09T16:39:40Z', draft: false, prerelease: false }
+  const result = await resolveRelease({
+    token: 'test-token',
+    fetchImpl: async (url, options) => {
+      assert.equal(url, 'https://api.github.com/repos/Peter-N91/hve-squad/releases/latest')
+      assert.equal(options.headers.authorization, 'Bearer test-token')
+      assert.ok(options.signal instanceof AbortSignal)
+      return { ok: true, json: async () => release }
+    },
+  })
+  assert.equal(result.version, '0.20.0')
+  await assert.rejects(resolveRelease({ fetchImpl: async () => ({ ok: false, status: 403 }) }), /HTTP 403/)
+  await assert.rejects(resolveRelease({ fetchImpl: async () => ({ ok: true, json: async () => ({ ...release, prerelease: true }) }) }), /pre-release/)
+})
+
+test('all clients use the self-contained plugin, with APM only as a fallback', async () => {
+  const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+  assert.equal(pluginMarketplace, 'Peter-N91/hve-squad#plugin')
+  assert.equal(pluginId, 'hve-squad@hve-squad')
+  assert.match(app, /Chat: Manage Plugin Marketplaces/)
+  assert.match(app, /Chat: Open Customizations → Plugins/)
+  assert.match(app, /Fallback: install into the repository with APM/)
+  assert.doesNotMatch(app, /Install both|pair must be installed|VS Code uses the APM package|hve-squad-plugin\/install-/)
+  assert.match(prerequisites.find(item => item.what.startsWith('APM CLI')).why, /plugin does not need APM/)
+  assert.match(lesson('prepare').steps.find(step => step.title === 'Install HVE Squad in your client').body, /One self-contained plugin/)
+  assert.ok(sources.every(source => !source.url.includes('hve-squad-plugin/')))
+  for (const workflow of ['ci', 'pages']) {
+    const yaml = await readFile(new URL(`../.github/workflows/${workflow}.yml`, import.meta.url), 'utf8')
+    assert.match(yaml, /HVE_SQUAD_RELEASE_REQUIRED: '1'/)
+    assert.match(yaml, /push:\r?\n\s+branches: \[main\]/)
+  }
+})
+
+test('a required release lookup fails closed while offline development keeps the committed release', () => {
+  const mockFetch = 'data:text/javascript,globalThis.fetch = async () => { throw new Error("simulated GitHub outage") }'
+  const script = fileURLToPath(new URL('../scripts/hve-squad-release.mjs', import.meta.url))
+  for (const [required, offline, status, message] of [
+    ['1', '0', 1, /simulated GitHub outage/],
+    ['0', '0', 0, /could not check the latest release: simulated GitHub outage/],
+    ['0', '1', 0, /offline, committed value/],
+  ]) {
+    const result = spawnSync(process.execPath, ['--import', mockFetch, script], {
+      encoding: 'utf8',
+      timeout: 10000,
+      env: { ...process.env, HVE_SQUAD_RELEASE_REQUIRED: required, HVE_SQUAD_RELEASE_OFFLINE: offline },
+    })
+    assert.ifError(result.error)
+    assert.equal(result.status, status, result.stderr)
+    assert.match(result.stdout + result.stderr, message)
+  }
+})
+
+test('the v0.20 workflow and governance guidance preserves the standard workshop baseline', () => {
+  for (const settings of combinations) {
+    for (const prompt of allPrompts) assert.doesNotMatch(renderPrompt(prompt, settings), /depth=["']?quick|routing=["']?economy/)
+  }
+  assert.match(troubleshooting.find(([title]) => title.includes('depth=quick'))[1], /standard on every turn, independently of routing/)
+  const report = lesson('together').steps.find(step => step.title === 'Optional: a governance report').body
+  for (const basis of ['exact-native', 'estimated', 'modeled', 'host-billed']) assert.ok(report.includes(basis))
+  assert.match(report, /modeled counterfactual, not a measured saving/)
+  const power = lesson('powerplatform')
+  assert.match(power.concept, /bundled local Primary agents/)
+  assert.match(power.setup[0].description, /do not silently substitute the Primary/)
+  assert.match(power.setup[0].description, /no Dataverse connection, deployment or tenant changes/)
+  assert.match(power.setup[0].questions.find(item => item.ask === 'Which packs?').answer, /Official skills require separate opt-in/)
+  assert.doesNotMatch(lessonStrings(power).join('\n'), /install its two specialists|not seeded before they are installed|go on without those roles/)
 })
 
 test('sources are https and the prerequisites are tied to their part or track', () => {

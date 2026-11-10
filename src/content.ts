@@ -138,6 +138,8 @@ export type Lesson = {
 
 export const squadVersion: string = hveSquadRelease.version
 export const squadReleaseUrl: string = hveSquadRelease.url
+export const pluginMarketplace = 'Peter-N91/hve-squad#plugin'
+export const pluginId = 'hve-squad@hve-squad'
 export const apmCliVersion = 'v0.29.0'
 export const apmCliReleaseUrl = `https://github.com/microsoft/apm/releases/tag/${apmCliVersion}`
 /** diagrams 0.25.0 moved its Azure nodes to Microsoft's Azure icons V18; 0.25.1 fixed the packaged icons. */
@@ -275,7 +277,7 @@ export const prerequisites: Prerequisite[] = [
   { what: 'Git', why: 'Your workshop folder is a Git repository so every change is visible and reversible, and the product releases are Git tags.', part: 'All parts', check: 'git --version', windows: 'winget install --id Git.Git -e', mac: 'xcode-select --install', scope: 'everyone' },
   { what: 'PowerShell 7+ (pwsh)', why: 'The squad\'s Scribe writes the cost ledger and checks it with PowerShell 7 scripts, and model routing uses one too. Windows PowerShell 5.1 is not enough. Without it the squad falls back to slower, less reliable hand-written ledgers.', part: 'All parts', check: 'pwsh --version', windows: 'winget install --id Microsoft.PowerShell -e', mac: 'brew install --cask powershell', scope: 'everyone' },
   { what: `HVE Squad ${squadVersion}`, why: 'The squad coordinators and their specialists. The guide always targets the latest HVE Squad release.', part: 'All parts', check: 'Step 3 below', windows: 'Installed in step 3, per client', mac: 'Installed in step 3, per client', scope: 'everyone' },
-  { what: `APM CLI ${apmCliVersion} (exactly)`, why: 'Installs HVE Squad into the folder (VS Code), and the Power Platform pack\'s two specialists (any client).', part: 'VS Code users · Power Platform track', check: 'apm --version → 0.29.0', windows: "$env:VERSION = 'v0.29.0'; irm https://aka.ms/apm-windows | iex", mac: 'curl -sSL https://aka.ms/apm-unix | sh -s -- @v0.29.0', scope: 'client' },
+  { what: `APM CLI ${apmCliVersion} (exactly)`, why: 'Only for the repository-local VS Code fallback, or consented installation of external Power Platform Alternates or optional skills. The self-contained plugin does not need APM; the pack\'s local Primary agents are bundled.', part: 'APM fallback · optional pack resources', check: 'apm --version → 0.29.0', windows: "$env:VERSION = 'v0.29.0'; irm https://aka.ms/apm-windows | iex", mac: 'curl -sSL https://aka.ms/apm-unix | sh -s -- @v0.29.0', scope: 'client' },
   { what: 'Azure CLI with Bicep', why: 'Lets you check the infrastructure code locally. No Azure sign-in, no subscription.', part: 'Azure track · Part 05 (recommended)', check: 'az bicep version', windows: 'winget install --id Microsoft.AzureCLI -e, then az bicep install', mac: 'brew install azure-cli, then az bicep install', scope: 'later', track: 'azure' },
   { what: `uv and the Python diagrams library ${diagramsVersion}+`, why: 'The Azure team draws the HLD and LLD with the Python diagrams library and the latest Azure icons (Azure icons V18). uv runs it without a Python setup and fetches the library on first use.', part: 'Azure track · Part 05 (required)', check: `uv run --with "${diagramsRequirement}" python -c "import diagrams.azure.compute"`, windows: 'winget install --id astral-sh.uv -e', mac: 'brew install uv', scope: 'later', track: 'azure' },
   { what: 'Graphviz', why: 'The rendering engine behind the diagrams library. A system program, not a Python package.', part: 'Azure track · Part 05 (required)', check: 'dot -V', windows: `winget install --id Graphviz.Graphviz -e (elevated). winget does not add it to PATH: run [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\\Program Files\\Graphviz\\bin', 'User'), then restart the terminal and your Copilot client`, mac: 'brew install graphviz', scope: 'later', track: 'azure' },
@@ -286,14 +288,19 @@ export const prerequisites: Prerequisite[] = [
 export const notNeeded = ['An Azure subscription', 'A Power Platform environment or licence', 'Visual Studio', 'A Python installation (uv brings its own for the Azure diagrams)', 'PDF readers or OCR', 'Node.js', 'Docker or Kubernetes']
 export const pwshNote = 'Restart your Copilot client after installing PowerShell 7, or after adding Graphviz to PATH, so it finds pwsh and dot. On macOS and Linux you keep using your usual shell; pwsh only needs to be installed. Rows for tracks you did not choose are hidden.'
 
-export const installation: Record<'cli' | 'cliUpdate' | 'apm', Prompt> = {
+const cliInstallCommands = `copilot plugin marketplace add ${pluginMarketplace}\ncopilot plugin install ${pluginId}\ncopilot plugin list`
+export const installation: Record<'cli' | 'cliUpdate' | 'cliMigrate' | 'apm', Prompt> = {
   cli: {
-    title: 'Install the HVE Squad plugin pair (Copilot CLI)', kind: 'shell',
-    text: 'copilot plugin marketplace add Peter-N91/hve-squad-plugin\ncopilot plugin install hve-squad@hve-squad-plugin\ncopilot plugin install hve-squad-hve-core@hve-squad-plugin\ncopilot plugin list',
+    title: 'Install the self-contained HVE Squad plugin (Copilot CLI)', kind: 'shell',
+    text: cliInstallCommands,
   },
   cliUpdate: {
-    title: `Already installed? Update both entries to ${squadVersion}`, kind: 'shell',
-    text: 'copilot plugin update hve-squad@hve-squad-plugin\ncopilot plugin uninstall hve-squad-hve-core@hve-squad-plugin\ncopilot plugin install hve-squad-hve-core@hve-squad-plugin\ncopilot plugin list',
+    title: `Update the self-contained plugin to ${squadVersion}`, kind: 'shell',
+    text: `copilot plugin marketplace update hve-squad\ncopilot plugin update ${pluginId}\ncopilot plugin list`,
+  },
+  cliMigrate: {
+    title: 'Migrate from the retired two-plugin marketplace', kind: 'shell',
+    text: `copilot plugin uninstall hve-squad@hve-squad-plugin\ncopilot plugin uninstall hve-squad-hve-core@hve-squad-plugin\ncopilot plugin marketplace remove hve-squad-plugin\n${cliInstallCommands}`,
   },
   apm: {
     title: `Install HVE Squad v${squadVersion} into the workshop folder (VS Code)`, kind: 'shell',
@@ -345,7 +352,7 @@ export const lessons: Lesson[] = [
     steps: [
       { title: 'Get the starter solution', body: 'Use the button above. In Edge or Chrome you choose a folder on your computer and the guide writes a northwind-workshop folder into it. In other browsers you get a zip file: extract it wherever you like. Nothing is uploaded; the files come from this website.' },
       { title: 'Run the readiness check', body: 'Open a terminal inside the northwind-workshop folder and run the command for your system. It lists what is installed, flags what is missing for each part and track, and turns the folder into a Git repository with a first commit tagged "starter". It installs nothing and is safe to run again.', prompt: readyScript },
-      { title: 'Install HVE Squad in your client', body: 'Follow the panel below for the client selected at the top of the page. Install once, in the client you will actually use. HVE Squad is installed together with [HVE Core](term:hve-core), which provides the agents and skills that HVE Squad routes your work to: two plugins in the CLI and the App, one APM package in VS Code. Then confirm that Squad Coordinator and Squad Federation Coordinator both appear in your client\'s agent list: /agent in Copilot CLI, the agent list in the App, the agents dropdown in VS Code.' },
+      { title: 'Install HVE Squad in your client', body: 'Follow the panel below for the client selected at the top of the page. Install once, in the client you will actually use. One self-contained plugin bundles HVE Squad and its pinned [HVE Core](term:hve-core) agents and skills in the CLI, the App and VS Code; APM is only a repository-local VS Code fallback. Remove the retired two-plugin installation before migrating, and do not install a second HVE Core plugin. Start a fresh session, then confirm that Squad Coordinator and Squad Federation Coordinator both appear in your client\'s agent list: /agent in Copilot CLI, the agent list in the App, the agents dropdown in VS Code.' },
       { title: 'Choose your model and routing', body: 'Select a balanced model at least as capable as Claude Sonnet 5.5 in your client now, and keep it for the whole workshop. Not Auto. Then choose the [model routing](term:routing) at the top of this page (Off, Ranked or Manual) — the guide adds it to every work request. Write both in your evidence log.' },
       { title: 'Check that Copilot can read the case', body: 'Open the northwind-workshop folder in your client. With no squad agent selected, ask the question below. Compare the answer with the documents: three business areas BA-01 to BA-03 owned by the Azure, .NET and Power Platform tracks, the deadline 30 June 2027 (C-01) and .NET Framework 4.8 (CS-01). If the answer is wrong or vague, tell the facilitator before the session.', prompt: readinessQuestion },
     ],
@@ -672,28 +679,29 @@ export const lessons: Lesson[] = [
   {
     id: 'powerplatform', number: '07', track: 'powerPlatform', title: 'Design the claims solution on Power Platform', eyebrow: 'Power Platform track · BA-03', minutes: 60,
     goal: 'Add a Power Platform team that turns its release into a claims solution a maker team could build — Dataverse model, app, approval flow, integration, environments and licences — without touching a real environment.',
-    concept: 'The Power Platform team builds only from its own releases and does not wait for any other track. Power Platform expertise arrives as a pack on top of the team\'s profile: the squad proposes the power-platform pack because the request names the platform, and asks you to install its two specialists. The hard problems here are licences, on-premises data and approvals, not code.',
-    inputs: ['The first Power Platform release: docs/product/releases/power-platform-r1.md (Git tag product/power-platform-r1). Later releases (r2, r3…) are built the same way', 'knowledge-docs: BA-03, C-07 and C-08 in business-case.md, CS-24 to CS-28 in current-state.md, ES-32 to ES-37 in engineering-standards.md', `APM CLI ${apmCliVersion}, to install the pack's two specialists when the squad asks`],
+    concept: 'The Power Platform team builds only from its own releases and does not wait for any other track. The squad proposes the power-platform pack because the request names the platform. Its pp-architect and pp-connector roles have bundled local Primary agents; broader architecture and connector work selects community Alternates that remain external. Official skills are separately opt-in, not installed or selected just because they exist on your machine. The hard problems here are licences, on-premises data and approvals, not code.',
+    inputs: ['The first Power Platform release: docs/product/releases/power-platform-r1.md (Git tag product/power-platform-r1). Later releases (r2, r3…) are built the same way', 'knowledge-docs: BA-03, C-07 and C-08 in business-case.md, CS-24 to CS-28 in current-state.md, ES-32 to ES-37 in engineering-standards.md', `APM CLI ${apmCliVersion} only if you consent to installing an external Alternate or optional registered skill`],
     setup: [{
       id: 'power-platform-team',
       title: '1. Add the Power Platform team',
-      description: 'Use the federation coordinator. This is another [init](term:init), inside the [federation](term:federation): it adds one team and starts no work. It should propose a [profile](term:profile) together with the power-platform [pack](term:pack), and show the install commands of the pack\'s two specialists. Run them in a terminal inside the northwind-workshop folder (add --target copilot if APM reports "No harness detected"), reload your client if needed, then confirm. If you cannot install them, go on without those roles and record it.',
+      description: 'Use the federation coordinator. This is another [init](term:init), inside the [federation](term:federation): it adds one team and starts no work. Accept a suitable [profile](term:profile) with the power-platform [pack](term:pack). The local Primaries, Squad Power Platform Architect and Squad Power Platform Integrator, ship with the package. If the task selects a community Alternate, the coordinator must show its registered install command and ask for consent. Install only what you approve, reload the client when needed, then confirm. If an Alternate is unavailable, record the blocked work and ask the coordinator how to narrow the scope; do not silently substitute the Primary. Keep optional skills planning-only: no Dataverse connection, deployment or tenant changes.',
       request: {
         title: 'Add a team for the delivery-claims solution', kind: 'setup', entry: 'squad-federation', lifecycle: 'init', requiresSetup: ['promote'],
         text: 'init\n\nAdd a new team named "{powerPlatformSquad}" to this federation. Its job: design the delivery-claims solution of business area BA-03 on Power Platform — Power Apps, Power Automate and Dataverse — from the Power Platform releases the product team tagged product/power-platform-r1, product/power-platform-r2 and so on, starting with product/power-platform-r1. Use as context knowledge-docs (especially BA-03 in business-case.md, the claims facts in current-state.md and the Power Platform standards in engineering-standards.md) and docs/product. Keep the other teams\' work and responsibilities separate. Set up this team only; I will send the work request next.',
       },
       questions: [
         { ask: 'Which profile?', answer: 'Accept the profile it proposes. The profile is the kind of team; the Power Platform expertise comes from the pack below.', terms: ['profile', 'profile-table'] },
-        { ask: 'Which packs?', answer: 'Yes to power-platform: it is the one pack that fits this track, and it adds two specialists (pp-architect and pp-connector) that you install with the commands shown. Skip Microsoft 365 Copilot, AWS and Foundry: they are for other technologies.', terms: ['pack'] },
+        { ask: 'Which packs?', answer: 'Yes to power-platform: it adds pp-architect and pp-connector with bundled local Primaries. The broader design and custom connector in this exercise can select the external Power Platform Expert and Power Platform MCP Integration Expert Alternates; approve their registered installation only if needed. Official skills require separate opt-in. Skip Microsoft 365 Copilot, AWS and Foundry, and Fabric: they are for other technologies.', terms: ['pack'] },
         { ask: 'Do you confirm the proposed team?', answer: 'Read the roster it shows, then confirm. Naming and approval choices are inherited from the federation, so they are usually not asked again.' },
       ],
       expected: [
         'A profile is proposed together with the power-platform pack, because the request names the platform.',
-        'The pack\'s specialists are offered with their exact install commands, origin and licence — not seeded before they are installed.',
+        'The two local Primary agents are already available; an external Alternate or optional skill is installed only with consent using its registered command, origin and licence.',
+        'An unavailable selected Alternate is escalated, not silently replaced by the Primary. Optional skills do not connect to a tenant.',
         'The team is registered in the federation with its profile and pack, for example "default +power-platform".',
         'No design is produced yet.',
       ],
-      checkpoint: 'The Power Platform team is set up inside the federation, and I recorded whether the pack\'s specialists were installed.',
+      checkpoint: 'The Power Platform team is set up inside the federation, and I recorded its Primary agents, external Alternates and any optional skills approved or declined.',
     }],
     flow: [{
       heading: '2. Ask for the claims solution design',
@@ -704,7 +712,7 @@ export const lessons: Lesson[] = [
       },
     }],
     behaviors: [
-      'The coordinator offers the power-platform pack without being told, and the pack\'s specialists take part once installed.',
+      'The coordinator offers the power-platform pack without being told, distinguishes bundled Primaries from external Alternates, and asks before installing optional resources.',
       'Research reads current-state.md and finds that Order Desk has no API and sits on the Lyon network, instead of assuming a ready-made connector.',
       'Licence and cost choices are written as decision records with the rejected options, not as a single sentence.',
       'The review stage checks the design against ES-34 to ES-37 and reports findings instead of declaring success.',
@@ -735,7 +743,7 @@ export const lessons: Lesson[] = [
       { title: 'Read the licence decision', body: 'Open the cost estimate. Does it count every user group (Order Desk, Finance, Antwerp), name the licence each needs, cite its price sources and compare the total with C-08? A price without a source is an ASSUMPTION.' },
       { title: 'Check the cross-track dependencies', body: 'The Order Desk API is not this team\'s to build. Is it recorded as an OPEN dependency with an owner[[dotnet: (for example the .NET team)]][[azure: and the network reach from Power Platform as a question for the Azure team]], rather than assumed to exist?' },
     ],
-    evidence: ['docs/power-platform and powerplatform/', 'Your trap score and the JSON validation output', 'Whether the pack\'s specialists were installed, and which roles ran'],
+    evidence: ['docs/power-platform and powerplatform/', 'Your trap score and the JSON validation output', 'Which Primary or Alternate agents ran, optional resources approved or declined, and any blocked work'],
     checks: [
       'I scored the design against the review key.',
       'The licence and cost estimate covers every user group and is compared with C-08.',
@@ -743,7 +751,7 @@ export const lessons: Lesson[] = [
       'The Order Desk API is recorded as an OPEN cross-track dependency, not assumed.',
       'Nothing was created or imported in a real Power Platform environment.',
     ],
-    recovery: 'If the pack\'s specialists cannot be installed, continue without them and compare the result with a colleague who has them: that difference is useful evidence. If the run is still going after 40 minutes, let it finish the data model, the approval flow and the licence estimate first.',
+    recovery: 'If a selected external Alternate cannot be installed, record the blocked capability and ask the coordinator to propose a narrower supported scope; do not treat a silent Primary substitution as equivalent. Compare with a colleague who has the Alternate. If the run is still going after 40 minutes, prioritize the data model, the approval flow and the licence estimate.',
   },
   {
     id: 'together', number: '08', title: 'Bring it together', eyebrow: 'Every team, one picture', minutes: 20,
@@ -765,7 +773,7 @@ export const lessons: Lesson[] = [
     ],
     steps: [
       { title: 'Verify one claim per team', body: 'Pick one statement about each team and open the file it cites. Is it true?' },
-      { title: 'Optional: a governance report', body: 'Ask the federation coordinator to "generate the squad governance report for the whole federation under docs/". It summarizes gates, council verdicts, dispatches and estimated cost — useful evidence for the discussion.' },
+      { title: 'Optional: a governance report', body: 'Ask the federation coordinator to "generate the squad governance report for the whole federation under docs/". The deterministic, self-contained HTML report shows gates, council verdicts, dispatches and the complete consumption ledger. Read each cost and ROI basis: exact-native, estimated, modeled or host-billed. The without-Squad comparison is a modeled counterfactual, not a measured saving; missing evidence stays unavailable, and a shared host session is counted once across the federation.' },
       { title: 'Ask your own next question', body: 'Ask something real in your own words, for example how the portal or the claims app would call Order Desk. Observe which team the coordinator routes it to and why.' },
     ],
     evidence: ['The cross-team status answer', 'One verified claim per team', 'Optionally, the governance report'],
@@ -794,7 +802,7 @@ export const lifecycleSteps = lessons.flatMap(lesson =>
 
 export const troubleshooting: [string, string][] = [
   ['What do init, promote, a profile or a pack mean?', 'Read the [core ideas](term:concepts) page once: every term has its own section. In short, [init](term:init) creates one team and starts no work, [promote](term:promote) turns your team into the first member of a [federation](term:federation), a [profile](term:profile) is the kind of team you create, and a [pack](term:pack) is an optional technology add-on.'],
-  ['Which Copilot client should I use?', 'Copilot CLI is recommended: it is the quickest to start and the client used in HVE Squad demos. The Copilot App suits people who would rather not use a terminal. VS Code also works: install HVE Squad with APM, then choose the squad agent from the agents dropdown in Copilot Chat. In every client the messages are the same; only the way you select the agent differs.'],
+  ['Which Copilot client should I use?', 'Copilot CLI is recommended: it is the quickest to start and the client used in HVE Squad demos. The Copilot App suits people who would rather not use a terminal. VS Code also works: install the self-contained plugin, then choose the squad agent from the agents dropdown in Copilot Chat. APM is only the repository-local fallback. In every client the messages are the same; only the way you select the agent differs.'],
   ['The starter button only downloads a zip', 'Your browser cannot write to folders (Firefox and Safari). Extract the zip wherever you want the workshop folder; it contains a single northwind-workshop folder.'],
   ['The folder already exists', 'The guide never overwrites. Choose another location, or rename the existing folder first.'],
   ['Which tracks should I choose?', 'The tracks your practice delivers. Azure and .NET work on the legacy code; Power Platform is about licences, data and approvals. They are independent, so one track is enough for a first run. In a group, split the tracks across tables.'],
@@ -804,15 +812,17 @@ export const troubleshooting: [string, string][] = [
   ['How do the release tags map to GitHub or Jira?', 'ES-39 in engineering-standards.md: in Azure DevOps the track and release tags are work-item tags; in GitHub they are issue labels, and each release is also a milestone; in Jira they are labels, and each release is also a fix version. The Git tag product/<track>-r<n> always marks the approved documents of that release.'],
   ['git commit asks who I am', 'Set an identity for this folder only: git config user.name "Your Name" and git config user.email you@example.com. Then commit again.'],
   ['Which agent do I select?', 'Parts 02–03: Squad Coordinator. Parts 04–08: Squad Federation Coordinator. The optional Squad Coach in Part 01: Squad Coach. The Part 00 readiness question: no squad agent. Select the agent in your client — /agent in Copilot CLI, the agent list in the App, the agents dropdown in VS Code Copilot Chat — then paste the message.'],
-  ['The coordinators are missing from the agent list', 'Check the client you actually use: the App and the CLI can have different plugin homes. Both hve-squad and hve-squad-hve-core must be installed. Do not also install the official hve-core plugin. In VS Code, reload the window after the APM install and open the agents dropdown again.'],
+  ['The coordinators are missing from the agent list', `Check the client you actually use: the App and the CLI can have different plugin homes. Install the single hve-squad plugin from ${pluginMarketplace}, which bundles its pinned HVE Core. Remove the retired hve-squad-plugin marketplace and its two entries before migrating; do not install a second hve-core plugin. Update or reinstall hve-squad, start a fresh session and ask the coordinator to run squad-doctor. For the VS Code APM fallback, reload the window after installation.`],
+  ['The readiness check says LEGACY, WRONG VERSION or UNVERIFIED', `Download a fresh starter from this guide: previously downloaded readiness scripts do not update themselves. The CLI check expects ${pluginId} at exactly v${squadVersion}, not the retired two-plugin pair or a preview build. Follow Part 00 to migrate or update, then rerun the check. App and VS Code installations must be verified inside their own client, not through the CLI.`],
   ['The coordinator lists packs I do not use (Foundry, AWS, Microsoft 365 Copilot…)', '[Packs](term:pack) are optional add-ons, not alternatives to the profile. The list is a menu of everything the squad knows, not a recommendation, so choose none unless your project uses that technology. In this workshop only the Power Platform track uses a pack (power-platform). If you do not know what an option does, answer in your own words and ask the coordinator to explain it before you choose.'],
   ['Should I start a new conversation after init or promote?', 'It is recommended, and it is safe. The squad keeps its decisions and history in files under .copilot-tracking/squad/ and rereads them at every turn, so a fresh conversation resumes exactly where the files say you are; the chat itself is not the memory. In the new conversation select the same agent again and send the next message. See [starting a new chat](term:new-chat) in the docs.'],
   ['Where did the squad write its files?', 'Each role writes to a fixed folder: research under .copilot-tracking/research/, plans under .copilot-tracking/plans/, changes under .copilot-tracking/changes/, reviews under .copilot-tracking/reviews/; the technical writer writes under docs/ and the architects under docs/architecture/. The team\'s own state (roster, decisions, history) is under .copilot-tracking/squad/, and in a federation each member\'s folders sit under its own members/ folder. You can change where a role writes by editing its Deliverable Root cell in team.md: see [where deliverables go](term:deliverables).'],
   ['"No squad state detected"', 'Normal before Part 02. The coordinator will propose a team when you send the first setup message.'],
-  ['The Power Platform specialists are not installed', `The power-platform pack's two roles rest on agents from github/awesome-copilot that you install with the commands the coordinator shows (APM CLI ${apmCliVersion}; add --target copilot if APM says "No harness detected"). Until they are installed the coordinator does not seed them. You can go on without them; record it.`],
+  ['The Power Platform specialists are not installed', `The pack's local Primary agents ship with HVE Squad. Broader architecture or connector work selects community Alternates from github/awesome-copilot, which remain external: approve the registered install command only when needed (APM CLI ${apmCliVersion}, --target copilot). If a selected Alternate is unavailable, the coordinator must escalate, not silently use the Primary. Official skills are separately opt-in; keep this workshop planning-only with no tenant connections or changes.`],
   ['The squad convened a council that is not in the team or not logged', 'Record it in your evidence log: what triggered it, which roles took part, and whether decisions.md has an entry. Then ask the coordinator where the council is recorded. If it is not, report it as a GitHub issue with that evidence.'],
   ['My token usage is very different from a colleague\'s', 'Compare the tracks and scope first, then the session model (Auto and small models behave very differently from Sonnet-class models), then the model routing: ranked and manual send each role to a different model. Then compare what the intake validator asked. Some variation is normal for non-deterministic systems.'],
   ['Which model routing should I choose?', 'Off if you want the simplest, most comparable run: every role uses your session model. Ranked if you want the squad to match each role to the best-fitting model your client offers. Manual if you want to choose yourself; the squad asks once before the first dispatch. All three work for this workshop.'],
+  ['Should I use depth=quick or Economy routing?', 'Keep the workshop comparable: these messages omit depth, which means standard on every turn, independently of routing. depth=quick is an explicit per-turn opt-in, not another model-routing choice; it never weakens required gates. Economy routing is also optional and needs explicit consent for all routed roles. Explore these after the workshop rather than changing the baseline halfway through.'],
   ['Manual routing keeps asking for models', 'It asks once per team, before that team\'s first dispatch, and saves your picks in team.md. Each new track team (Azure, .NET, Power Platform) asks for its own roster. If VS Code rejects a pick, you are asked again with the models it actually offers.'],
   ['The documents contain requirements that are not in the case', 'Point the squad to the statement and the identifier it cites and ask it to either show the source or relabel it ASSUMPTION (ES-03). Count it in your evidence log.'],
   ['The stories are hard to read', 'Ask the squad to rewrite the specific story following ES-05, so that a developer who has not read the case can build it. Keep the before and after as evidence.'],
@@ -840,8 +850,7 @@ export const sources = [
   { name: 'Demo: Product squad', url: `${docsUrl}demo-3.html` },
   { name: 'Demo: Migration autopilot', url: `${docsUrl}demo-2.html` },
   { name: 'Demo: Modernize .NET', url: `${docsUrl}demo-4.html` },
-  { name: 'HVE Squad plugin: CLI installation', url: 'https://peter-n91.github.io/hve-squad-plugin/install-cli.html' },
-  { name: 'HVE Squad plugin: App installation', url: 'https://peter-n91.github.io/hve-squad-plugin/install-desktop.html' },
+  { name: 'HVE Squad: stable self-contained plugin (all clients)', url: `${docsUrl}getting-started.html` },
   { name: `APM CLI ${apmCliVersion}`, url: apmCliReleaseUrl },
   { name: 'Remote Azure DevOps MCP server', url: 'https://learn.microsoft.com/azure/devops/mcp-server/remote-mcp-server' },
   { name: 'GitHub Copilot CLI: installation', url: 'https://docs.github.com/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli' },

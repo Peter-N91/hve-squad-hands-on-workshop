@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   apmCliReleaseUrl, apmCliVersion, clientAdvice, conceptsUrl, docsUrl, installation, lessons, lifecycleExplainers, modeRule, modelGuidance, newConversation, readFirst, releaseName,
-  notNeeded, observationNote, pwshNote, routingNote, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion, startHereTerms,
+  notNeeded, observationNote, pluginId, pluginMarketplace, pwshNote, routingNote, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion, startHereTerms,
   trackModeOptions, trackNote, tracks, troubleshooting,
 } from './content'
 import type { Lesson, LessonStep, LifecycleStep, Prompt, SquadKey, Term } from './content'
@@ -303,27 +303,35 @@ function App() {
       <h2>Install HVE Squad {squadVersion}</h2>
       <p className="small">The guide always targets the latest HVE Squad release: <a href={squadReleaseUrl} target="_blank" rel="noreferrer">v{squadVersion} release notes</a>.</p>
       {settings.experience === 'cli' && <>
-        <p>Run these in any terminal. The pair must be installed together; do not also install the official hve-core plugin. <code>copilot plugin list</code> must show <code>hve-squad@hve-squad-plugin (v{squadVersion})</code>; the second entry shows HVE Core's own version, which is expected. Then start <code>copilot</code> inside the northwind-workshop folder and type <code>/agent</code>: you should see Squad Coordinator and Squad Federation Coordinator.</p>
+        <p>Run these in any terminal. One plugin bundles HVE Squad and its pinned HVE Core; do not install a second hve-core plugin. <code>copilot plugin list</code> must show <code>{pluginId} (v{squadVersion})</code>. Then start a fresh <code>copilot</code> session inside the northwind-workshop folder and type <code>/agent</code>: you should see Squad Coordinator and Squad Federation Coordinator.</p>
         {promptBlock(installation.cli)}
         <details><summary>Installed for an earlier workshop? Update to v{squadVersion}</summary>
-          <p>Update hve-squad, and remove then reinstall hve-squad-hve-core: a plain update keeps its old pinned commit.</p>
+          <p>For the self-contained plugin, refresh the marketplace and update the one plugin; Squad and HVE Core update together.</p>
           {promptBlock(installation.cliUpdate)}
+        </details>
+        <details><summary>Still using the retired hve-squad-plugin marketplace?</summary>
+          <p>Remove its two entries and marketplace first, then install the self-contained plugin. Run the uninstall commands only for entries shown by <code>copilot plugin list</code>. Your project and squad state are not reset.</p>
+          {promptBlock(installation.cliMigrate)}
         </details>
       </>}
       {settings.experience === 'app' && <>
         <ol>
-          <li>Open the Copilot App settings, then <strong>Plugins</strong>.</li>
-          <li>Add the marketplace <code>Peter-N91/hve-squad-plugin</code>.</li>
-          <li>Install both <code>hve-squad</code> and <code>hve-squad-hve-core</code>. Do not also install the official hve-core plugin.</li>
-          <li>Check that hve-squad shows version <strong>{squadVersion}</strong>. If it shows an older version, update hve-squad, then remove and reinstall hve-squad-hve-core.</li>
-          <li>Open the northwind-workshop folder and check the agent list for Squad Coordinator and Squad Federation Coordinator.</li>
+          <li>If migrating, uninstall the retired marketplace's hve-squad and hve-squad-hve-core entries and remove that marketplace first.</li>
+          <li>Open <strong>Customize → Plugins</strong> in the Copilot App and add <code>{pluginMarketplace}</code>.</li>
+          <li>Install only <code>hve-squad</code>. It bundles HVE Core; do not install a second hve-core plugin.</li>
+          <li>Check that hve-squad shows version <strong>{squadVersion}</strong>. Use the App's update action if it is older.</li>
+          <li>Start a fresh session on the northwind-workshop folder and check the agent list for Squad Coordinator and Squad Federation Coordinator.</li>
         </ol>
-        <p className="small">Labels can vary between App versions; see the <a href="https://peter-n91.github.io/hve-squad-plugin/install-desktop.html" target="_blank" rel="noreferrer">App installation guide</a>. A CLI installation does not install the App plugins.</p>
+        <p className="small">Labels can vary between App versions; see the <a href={`${docsUrl}getting-started.html`} target="_blank" rel="noreferrer">installation guide</a>. A CLI installation does not prove that the App has the plugin.</p>
       </>}
       {vscode && <>
-        <p>VS Code uses the APM package, which adds the HVE Squad agents to the folder. APM must be <strong>exactly {apmCliVersion}</strong> — newer versions currently fail on this package. Install it with the command from the table above, sign in to GitHub (<code>gh auth login</code>) to avoid slow rate limits, then run this inside the northwind-workshop folder:</p>
-        {promptBlock(installation.apm)}
-        <p className="small">Reload VS Code, open Copilot Chat and open the agents dropdown: Squad Coordinator and Squad Federation Coordinator must be listed. You choose an agent there and paste the message the guide gives you. <a href={apmCliReleaseUrl} target="_blank" rel="noreferrer">APM {apmCliVersion} release</a>.</p>
+        <p>Use the self-contained plugin, with no APM installation required. Run <strong>Chat: Manage Plugin Marketplaces</strong>, add <code>{pluginMarketplace}</code>, then open <strong>Chat: Open Customizations → Plugins</strong> and install <code>hve-squad</code>. Check version <strong>{squadVersion}</strong>; use <strong>Check for and Apply Updates</strong> if needed. Do not keep an old APM copy or a second HVE Core plugin enabled alongside it.</p>
+        <p className="small">Start a fresh Copilot session and open the agents dropdown: Squad Coordinator and Squad Federation Coordinator must be listed. Choose an agent there and paste the message the guide gives you. Ask the coordinator to run <code>squad-doctor</code> if agents are missing.</p>
+        <details><summary>Fallback: install into the repository with APM</summary>
+          <p>Use this instead of the plugin only when customizations must live in the repository. APM must be <strong>exactly {apmCliVersion}</strong>. Sign in to GitHub (<code>gh auth login</code>) to avoid slow rate limits, then run this inside northwind-workshop:</p>
+          {promptBlock(installation.apm)}
+          <p className="small">Reload VS Code and check the agents dropdown. <a href={apmCliReleaseUrl} target="_blank" rel="noreferrer">APM {apmCliVersion} release</a>.</p>
+        </details>
       </>}
     </section>
   }

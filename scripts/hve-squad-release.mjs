@@ -2,7 +2,8 @@
 // Asks GitHub for Peter-N91/hve-squad's latest release (pre-releases excluded) and writes
 // src/hve-squad-release.ts. Runs before dev, build and the starter package, so every published
 // build names, installs and links the current release. Offline, rate-limited or with
-// HVE_SQUAD_RELEASE_OFFLINE=1 it keeps the committed file and says so.
+// HVE_SQUAD_RELEASE_OFFLINE=1 it keeps the committed file and says so. CI requires a
+// successful lookup with HVE_SQUAD_RELEASE_REQUIRED=1 to avoid publishing a stale guide.
 import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -50,6 +51,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
         console.log(`HVE Squad release: v${latest.version} (updated from v${committed.version})`)
       } else console.log(`HVE Squad release: v${latest.version} (latest)`)
     } catch (error) {
+      if (process.env.HVE_SQUAD_RELEASE_REQUIRED === '1') throw error
       console.warn(`HVE Squad release: v${committed.version} (could not check the latest release: ${error instanceof Error ? error.message : error})`)
     }
   }

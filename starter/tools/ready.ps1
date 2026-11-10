@@ -38,19 +38,25 @@ else { Add-Result 'Git' 'All parts' 'MISSING' 'Install: winget install --id Git.
 $copilot = Get-FirstLine 'copilot' @('--version')
 if ($copilot) {
     Add-Result 'GitHub Copilot CLI' 'CLI client only' 'OK' $copilot
-    $plugins = (& copilot plugin list 2>&1 | Out-String)
-    $squadMatch = [regex]::Match($plugins, 'hve-squad@hve-squad-plugin\s*\(v?([0-9][0-9.]*)\)')
-    $hasSquad = $plugins -match 'hve-squad@hve-squad-plugin'
-    $hasCore = $plugins -match 'hve-squad-hve-core@hve-squad-plugin'
-    if ($hasSquad -and $hasCore) {
-        if ($squadMatch.Success -and $squadMatch.Groups[1].Value -notlike '{{HVE_SQUAD_MINOR}}.*') {
-            Add-Result 'HVE Squad plugin pair' 'CLI client only' 'WRONG VERSION' "hve-squad v$($squadMatch.Groups[1].Value) - the guide is built for {{HVE_SQUAD_VERSION}}. Update: see guide, Part 00, step 3"
+    $pluginOutput = @(& copilot plugin list 2>&1)
+    $pluginExitCode = $LASTEXITCODE
+    $plugins = $pluginOutput | Out-String
+    $squadId = '(?<![\w-])hve-squad@hve-squad(?=\s|$)'
+    $squadMatch = [regex]::Match($plugins, $squadId + '\s*\(v?(\d+\.\d+\.\d+)\)')
+    if ($pluginExitCode -ne 0) {
+        Add-Result 'HVE Squad plugin' 'CLI client only' 'CHECK FAILED' 'copilot plugin list failed. Run it in this terminal and resolve the error.'
+    } elseif ($plugins -match '(?<![\w-])(?:hve-squad|hve-squad-hve-core)@hve-squad-plugin(?=\s|$)') {
+        Add-Result 'HVE Squad plugin' 'CLI client only' 'LEGACY' 'Remove the retired two-plugin installation, then install hve-squad@hve-squad. See guide, Part 00, step 3.'
+    } elseif ($plugins -match $squadId) {
+        if (-not $squadMatch.Success) {
+            Add-Result 'HVE Squad plugin' 'CLI client only' 'UNVERIFIED' 'Could not read the hve-squad version. Check copilot plugin list; see guide, Part 00, step 3.'
+        } elseif ($squadMatch.Groups[1].Value -ne '{{HVE_SQUAD_VERSION}}') {
+            Add-Result 'HVE Squad plugin' 'CLI client only' 'WRONG VERSION' "hve-squad v$($squadMatch.Groups[1].Value) - the guide is built for {{HVE_SQUAD_VERSION}}. Update: see guide, Part 00, step 3"
         } else {
-            Add-Result 'HVE Squad plugin pair' 'CLI client only' 'OK' "hve-squad v$($squadMatch.Groups[1].Value) + hve-squad-hve-core installed"
+            Add-Result 'HVE Squad plugin' 'CLI client only' 'OK' 'hve-squad@hve-squad v{{HVE_SQUAD_VERSION}} installed (HVE Core bundled)'
         }
     }
-    elseif ($hasSquad -or $hasCore) { Add-Result 'HVE Squad plugin pair' 'CLI client only' 'INCOMPLETE' 'Install both entries (see guide, Part 00)' }
-    else { Add-Result 'HVE Squad plugin pair' 'CLI client only' 'MISSING' 'See guide, Part 00, step 3' }
+    else { Add-Result 'HVE Squad plugin' 'CLI client only' 'MISSING' 'Install hve-squad@hve-squad from Peter-N91/hve-squad#plugin. See guide, Part 00, step 3.' }
 } else {
     Add-Result 'GitHub Copilot CLI' 'CLI client only' 'NOT FOUND' 'Skip if you use the Copilot App or VS Code. Install: winget install GitHub.Copilot'
 }
@@ -96,13 +102,13 @@ if ($dot) { Add-Result 'Graphviz' 'Azure track' 'OK' $dot }
 elseif (Test-Path -LiteralPath 'C:\Program Files\Graphviz\bin\dot.exe') { Add-Result 'Graphviz' 'Azure track' 'NOT ON PATH' "winget does not add it. Run: [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\Program Files\Graphviz\bin', 'User'), then restart the terminal and your Copilot client" }
 else { Add-Result 'Graphviz' 'Azure track' 'MISSING' 'Install (elevated): winget install --id Graphviz.Graphviz -e, then run this check again' }
 
-# APM CLI - the VS Code client, and the Power Platform track's specialists (Part 07)
+# APM CLI - repository-local fallback or consented external pack resources (Part 07)
 $apm = Get-FirstLine 'apm' @('--version')
 if ($apm) {
-    if ($apm -match '0\.29\.0') { Add-Result 'APM CLI' 'VS Code, Power Platform' 'OK' $apm }
-    else { Add-Result 'APM CLI' 'VS Code, Power Platform' 'WRONG VERSION' "$apm - the workshop needs exactly 0.29.0" }
+    if ($apm -match '0\.29\.0') { Add-Result 'APM CLI' 'APM fallback, PP track' 'OK' $apm }
+    else { Add-Result 'APM CLI' 'APM fallback, PP track' 'WRONG VERSION' "$apm - the workshop needs exactly 0.29.0 for APM only" }
 } else {
-    Add-Result 'APM CLI' 'VS Code, Power Platform' 'NOT FOUND' 'Needed for VS Code, or to install the Power Platform specialists. Otherwise skip'
+    Add-Result 'APM CLI' 'APM fallback, PP track' 'NOT FOUND' 'Only for the repository-local APM fallback or optional external pack resources. The plugin and local Primaries do not need it.'
 }
 
 $results | Format-Table -AutoSize -Wrap
