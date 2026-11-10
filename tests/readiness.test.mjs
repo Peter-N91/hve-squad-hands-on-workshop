@@ -47,7 +47,7 @@ function az {
 function uv { $global:LASTEXITCODE = 0; 'uv test' }
 function dot { $global:LASTEXITCODE = 0; 'Graphviz test' }
 function apm { $global:LASTEXITCODE = 0; 'apm 0.29.0' }
-. (Join-Path $env:TEST_STARTER 'tools\\ready.ps1')
+& (Join-Path $env:TEST_STARTER 'tools\\ready.ps1') | Out-String -Width 80
 `
 
 const runtimes = [
@@ -110,8 +110,9 @@ for (const runtime of runtimes) {
           const row = result.stdout.split(/\r?\n/).find(line => line.startsWith('HVE Squad plugin'))
           assert.ok(row, result.stdout)
           assert.match(row, new RegExp(`CLI client only\\s+${scenario.status}(?:\\s|$)`), result.stdout)
-          if (scenario.status === 'OK') assert.match(result.stdout, /HVE Core bundled/)
-          if (scenario.status === 'WRONG VERSION') assert.ok(result.stdout.includes(`the guide is built for ${version}`))
+          const details = result.stdout.replace(/\s+/g, '')
+          if (scenario.status === 'OK') assert.ok(details.includes('HVECorebundled'), result.stdout)
+          if (scenario.status === 'WRONG VERSION') assert.ok(details.includes(`theguideisbuiltfor${version}`), result.stdout)
         })
       }
       assert.ok(!(await readdir(root)).includes('.git'), 'stubbed Git never creates or changes a repository')
