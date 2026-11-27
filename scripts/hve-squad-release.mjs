@@ -1,5 +1,5 @@
 // Pins the guide to the latest stable HVE Squad release.
-// Asks GitHub for Peter-N91/hve-squad's latest release (pre-releases excluded) and writes
+// Asks GitHub for microsoft/hve-squad's latest release (pre-releases excluded) and writes
 // src/hve-squad-release.ts. Runs before dev, build and the starter package, so every published
 // build names, installs and links the current release. Offline, rate-limited or with
 // HVE_SQUAD_RELEASE_OFFLINE=1 it keeps the committed file and says so. CI requires a
@@ -8,7 +8,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const repository = 'Peter-N91/hve-squad'
+export const repository = 'microsoft/hve-squad'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 export const releaseFile = join(root, 'src', 'hve-squad-release.ts')
 const semver = /^v?(\d+\.\d+\.\d+)$/

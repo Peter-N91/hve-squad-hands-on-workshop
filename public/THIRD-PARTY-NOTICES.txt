@@ -1,13 +1,13 @@
 THIRD-PARTY NOTICES
 
 HVE Squad logo (public/hve-squad-logo.svg, public/favicon.svg)
-Source: https://github.com/Peter-N91/hve-squad/tree/main/docs/assets
+Source: https://github.com/microsoft/hve-squad/tree/main/docs/assets
 The visual identity (colors, gradient, typography choices) follows the HVE Squad
 documentation site.
 
 MIT License
 
-Copyright (c) 2026 Peter-N91
+Copyright (c) Microsoft Corporation
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

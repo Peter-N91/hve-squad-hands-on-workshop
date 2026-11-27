@@ -4,22 +4,26 @@ import { readFile } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import {
-  agenda, autopilotMode, clientAdvice, coachQuestion, conceptsUrl, diagramsRequirement, diagramsVersion, docsUrl, glossary, installation, lessons, lifecycleExplainers, lifecycleSteps,
-  modeRule, newConversation, pluginId, pluginMarketplace, prerequisites, readFirst, readinessQuestion, readyScript, releaseName, releaseTag, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion,
-  startHereTerms, suggestedSquads, trackIds, trackModeOptions, tracks, troubleshooting,
+  agenda, autopilotMode, clientAdvice, coachQuestion, conceptsUrl, contentByLocale, depthOptions, diagramsRequirement,
+  diagramsVersion, doctorCheck, docsUrl, docsUrlFor, englishContent, frenchContent, glossary, installation,
+  legacyRepoMarketplace, lessons, lifecycleExplainers, lifecycleSteps, locales, modeRule, newConversation, pluginId,
+  pluginMarketplace, prerequisites, readFirst, readinessQuestion, readyScript, releaseName, releaseTag, routingOptions,
+  scopeOptions, sources, squadReleaseUrl, squadVersion, startHereTerms, suggestedSquads, trackIds, trackModeOptions,
+  tracks, troubleshooting,
 } from '../src/content.ts'
 import { hveSquadRelease } from '../src/hve-squad-release.ts'
 import {
-  addTrack, agentSelection, checkIds, checkLabel, coreCheckIds, decodeState, defaults, fillNames, missingSetup, newConversationHow, normalizeTracks, optionalCheckIds, pickTrack,
-  progress, promptBlockers, promptTermIds, promptTerms, setTrackMode,
-  renderPrompt, resolveConditions, setupCheckId, squadNameError, storageKey, stripTerms, termById, termParts, toggleCheck, toggleTrack, visibleAgenda, visibleAnswers, visibleLessons,
-  visiblePrerequisites,
+  addTrack, agendaMinutes, agentSelection, checkIds, checkLabel, coreCheckIds, decodeState, defaults, depths, fillNames,
+  lessonMinutes, missingSetup, newConversationHow, normalizeTracks, optionalCheckIds, pickTrack, progress,
+  promptBlockers, promptTermIds, promptTerms, renderPrompt, resolveConditions, routings, sessionTotals, setTrackMode,
+  setupCheckId, squadNameError, storageKey, stripTerms, termById, termParts, toggleCheck, toggleTrack, visibleAgenda,
+  visibleAnswers, visibleLessons, visiblePrerequisites,
 } from '../src/state.ts'
 import { applyRelease, collectStarter, crc32, createZip, starterFolder } from '../scripts/build-starter.mjs'
 import { parseRelease, readCommittedRelease, renderReleaseModule, resolveRelease } from '../scripts/hve-squad-release.mjs'
 
 const allPrompts = [
-  readinessQuestion, readyScript, installation.cli, installation.cliUpdate, installation.cliMigrate, installation.apm,
+  readinessQuestion, readyScript, doctorCheck, installation.cli, installation.cliUpdate, installation.cliSwitchRepo, installation.cliMigrate, installation.apm,
   ...lessons.flatMap(lesson => [
     ...(lesson.setup ?? []).map(step => step.request),
     ...(lesson.flow ?? []).map(item => item.prompt),
@@ -30,7 +34,7 @@ const allChecked = [...coreCheckIds, ...optionalCheckIds]
 const starterFiles = await collectStarter()
 const starterText = path => starterFiles.find(file => file.path === path)?.content ?? ''
 const knowledge = ['knowledge-docs/business-case.md', 'knowledge-docs/current-state.md', 'knowledge-docs/engineering-standards.md'].map(starterText).join('\n')
-const guideText = JSON.stringify({ lessons, troubleshooting, readinessQuestion })
+const guideText = JSON.stringify({ lessons, troubleshooting, readinessQuestion, french: { lessons: frenchContent.lessons, troubleshooting: frenchContent.troubleshooting, readinessQuestion: frenchContent.readinessQuestion } })
 const lesson = id => lessons.find(item => item.id === id)
 const workPrompt = id => lesson(id).flow[0].prompt
 const publication = { organization: 'contoso', project: 'Northwind', participant: 'AB-', documentTarget: 'wiki:/Northwind' }
@@ -39,30 +43,44 @@ const publication = { organization: 'contoso', project: 'Northwind', participant
 const trackSets = Array.from({ length: 2 ** trackIds.length - 1 }, (_, mask) => trackIds.filter((_, bit) => (mask + 1) & (1 << bit)))
 const combinations = trackSets.flatMap(set => scopeOptions.map(option => ({ ...defaults, ...publication, trackMode: set.length === trackIds.length ? 'all' : set.length === 1 ? 'one' : 'selected', tracks: set, scope: option.value })))
 const lessonStrings = item => [
-  item.goal, item.concept, item.recovery, ...item.inputs, ...item.evidence, ...item.checks, ...(item.behaviors ?? []),
+  item.goal, item.concept, item.recovery, item.timing, ...item.inputs, ...item.evidence, ...item.checks, ...(item.behaviors ?? []),
   ...(item.reviewKey ? [item.reviewKey.intro, ...item.reviewKey.items.map(entry => entry.detail)] : []),
   ...item.steps.map(step => step.body), ...(item.flow ?? []).map(flow => flow.hint),
   ...(item.setup ?? []).flatMap(step => [step.description, step.checkpoint, ...step.expected, ...(step.questions ?? []).flatMap(question => [question.ask, question.answer])]),
 ]
 
-test('the agenda follows the lessons and shrinks with the tracks chosen', () => {
+test('the agenda follows the lessons and dynamically estimates time by tracks, scope and depth', () => {
   const ordered = agenda.filter(item => item.lesson).map(item => item.lesson)
   assert.deepEqual(ordered, lessons.map(item => item.id))
-  const total = settings => visibleAgenda(settings).reduce((sum, item) => sum + item.minutes, 0)
-  assert.equal(total(defaults), 340)
-  for (const id of trackIds) assert.equal(total({ tracks: [id] }), 220, id)
+  const fullTotals = sessionTotals(defaults)
+  assert.equal(fullTotals.coreMinutes, 290)
+  assert.equal(fullTotals.optionalMinutes, 55)
+  assert.equal(fullTotals.totalMinutes, 345)
+  const quickTotals = sessionTotals({ ...defaults, depth: 'quick' })
+  assert.ok(quickTotals.coreMinutes < fullTotals.coreMinutes, 'quick depth shortens core session time')
+  assert.equal(quickTotals.coreMinutes, 235)
+  const oneFocused = sessionTotals({ ...defaults, tracks: ['powerPlatform'], scope: 'focused' })
+  assert.equal(oneFocused.coreMinutes, 175)
+  const oneFocusedQuick = sessionTotals({ ...defaults, tracks: ['powerPlatform'], scope: 'focused', depth: 'quick' })
+  assert.equal(oneFocusedQuick.coreMinutes, 150)
+  for (const item of lessons) {
+    assert.ok(item.timing && item.timing.includes('min'), `${item.id} has a timing breakdown`)
+    assert.ok(lessonMinutes(item, { ...defaults, depth: 'quick' }) <= lessonMinutes(item, defaults), item.id)
+  }
+  for (const row of visibleAgenda(defaults)) assert.ok(agendaMinutes(row, defaults) >= 0, row.title)
   assert.equal(agenda.at(-1).lesson, 'reflect')
   assert.equal(agenda.find(item => item.lesson === 'ado').optional, true)
+  assert.equal(agenda.find(item => item.lesson === 'connector').optional, true)
 })
 
 test('every lesson is complete and uniquely identified', () => {
   assert.equal(new Set(lessons.map(item => item.id)).size, lessons.length)
   assert.deepEqual(lessons.map(item => item.number), lessons.map((_, index) => String(index).padStart(2, '0')))
   for (const item of lessons) {
-    assert.ok(item.goal && item.concept && item.recovery, item.id)
+    assert.ok(item.goal && item.concept && item.recovery && item.timing, item.id)
     assert.ok(item.steps.length && item.checks.length && item.evidence.length && item.inputs.length, item.id)
   }
-  assert.deepEqual(lessons.filter(item => item.optional).map(item => item.id), ['ado'])
+  assert.deepEqual(lessons.filter(item => item.optional).map(item => item.id), ['ado', 'connector'])
 })
 
 test('each track owns one lesson, one setup step and one team name', () => {
@@ -141,36 +159,45 @@ test('only work requests carry autopilot, for every client', () => {
   }
 })
 
-test('every client puts the mode, routing and squad target on the first line', () => {
+test('every client puts the mode, routing, depth and squad target on the first line', () => {
   for (const experience of ['app', 'cli', 'vscode']) {
     const settings = { ...defaults, experience }
     const text = renderPrompt(workPrompt('migration'), settings)
-    assert.ok(text.startsWith(`${autopilotMode} routing="off" squad="azure-migration"\n\nPlan the move`), `${experience}: ${text.slice(0, 80)}`)
+    assert.ok(text.startsWith(`${autopilotMode} routing="off" depth="standard" squad="azure-migration"\n\nPlan the move`), `${experience}: ${text.slice(0, 95)}`)
     const power = renderPrompt(workPrompt('powerplatform'), settings)
-    assert.ok(power.startsWith(`${autopilotMode} routing="off" squad="power-platform"\n\nDesign the delivery-claims`), `${experience}: ${power.slice(0, 80)}`)
+    assert.ok(power.startsWith(`${autopilotMode} routing="off" depth="standard" squad="power-platform"\n\nDesign the delivery-claims`), `${experience}: ${power.slice(0, 95)}`)
     const promote = lifecycleSteps.find(step => step.id === 'promote').request
     assert.ok(renderPrompt(promote, settings).startsWith('promote\n\n'), experience)
   }
 })
 
-test('every autopilot request carries the chosen routing, and nothing else does', () => {
-  assert.deepEqual(routingOptions.map(option => option.value), ['off', 'ranked', 'manual'])
-  for (const option of routingOptions) assert.ok(option.summary && option.detail, option.value)
+test('every autopilot request carries the chosen routing (including economy) and depth, and nothing else does', () => {
+  assert.deepEqual(routingOptions.map(option => option.value), ['off', 'ranked', 'economy', 'manual'])
+  assert.deepEqual(routings, ['off', 'ranked', 'economy', 'manual'])
+  assert.deepEqual(depthOptions.map(option => option.value), ['standard', 'quick'])
+  assert.deepEqual(depths, ['standard', 'quick'])
+  for (const option of [...routingOptions, ...depthOptions]) assert.ok(option.summary && option.detail, option.value)
   assert.equal(defaults.routing, 'off')
-  for (const routing of ['off', 'ranked', 'manual']) {
-    for (const experience of ['app', 'cli', 'vscode']) {
-      const settings = { ...defaults, ...publication, experience, routing }
-      for (const prompt of allPrompts) {
-        const text = renderPrompt(prompt, settings)
-        const header = text.split('\n')[0]
-        if (prompt.kind === 'work') assert.ok(header.includes(`${autopilotMode} routing="${routing}"`), `${experience} ${routing} ${prompt.title}: ${header}`)
-        else assert.doesNotMatch(text, /routing="/, `${experience} ${prompt.title}`)
+  assert.equal(defaults.depth, 'standard')
+  for (const routing of routings) {
+    for (const depth of depths) {
+      for (const experience of ['app', 'cli', 'vscode']) {
+        const settings = { ...defaults, ...publication, experience, routing, depth }
+        for (const prompt of allPrompts) {
+          const text = renderPrompt(prompt, settings)
+          const header = text.split('\n')[0]
+          if (prompt.kind === 'work') assert.ok(header.includes(`${autopilotMode} routing="${routing}" depth="${depth}"`), `${experience} ${routing} ${depth} ${prompt.title}: ${header}`)
+          else assert.doesNotMatch(text, /^mode="autopilot"|\brouting="|\bdepth="/, `${experience} ${prompt.title}`)
+        }
       }
     }
   }
-  assert.equal(decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', routing: 'manual' } })).settings.routing, 'manual')
+  assert.equal(decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', routing: 'economy', depth: 'quick' } })).settings.routing, 'economy')
+  assert.equal(decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', routing: 'economy', depth: 'quick' } })).settings.depth, 'quick')
   assert.equal(decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli' } })).settings.routing, 'off')
+  assert.equal(decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli' } })).settings.depth, 'standard')
   assert.throws(() => decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', routing: 'fast' } })), /routing/)
+  assert.throws(() => decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', depth: 'deep' } })), /depth/)
 })
 
 test('the product lesson leaves intake to the squad', () => {
@@ -212,7 +239,7 @@ test('the product request asks for numbered, tagged releases for each chosen tra
 
 test('tracks are independent: hidden parts, answers, prerequisites and progress follow the choice', () => {
   const powerOnly = { ...defaults, tracks: ['powerPlatform'] }
-  assert.deepEqual(visibleLessons(powerOnly).map(item => item.id), ['prepare', 'orient', 'product', 'ado', 'federation', 'powerplatform', 'together', 'reflect'])
+  assert.deepEqual(visibleLessons(powerOnly).map(item => item.id), ['prepare', 'orient', 'product', 'ado', 'federation', 'powerplatform', 'together', 'connector', 'reflect'])
   assert.ok(!visiblePrerequisites(powerOnly).some(item => item.what.startsWith('.NET') || item.what.startsWith('Azure CLI')))
   assert.equal(visiblePrerequisites(defaults).length, prerequisites.length)
   assert.deepEqual(visibleAnswers(lesson('product').answers, { ...powerOnly, scope: 'focused' }).map(answer => answer.question.slice(0, 5)), ['OQ-04', 'OQ-05'])
@@ -278,7 +305,7 @@ test('every client gets the same message, and no slash command is involved', () 
   assert.ok(renderPrompt(lifecycleSteps[1].request, vscode).startsWith('promote\n\nWe want'))
   assert.ok(renderPrompt(lifecycleSteps[2].request, vscode).startsWith('init\n\nAdd a new team named "azure-migration"'))
   const modernize = renderPrompt(workPrompt('modernize'), vscode)
-  assert.ok(modernize.startsWith(`${autopilotMode} routing="off" squad="dotnet-modernization"\n\nModernize`), modernize.slice(0, 100))
+  assert.ok(modernize.startsWith(`${autopilotMode} routing="off" depth="standard" squad="dotnet-modernization"\n\nModernize`), modernize.slice(0, 110))
   assert.match(renderPrompt(workPrompt('product'), vscode), /\n- Azure: track tag track-azure; release tags azure-r1, azure-r2 and so on; release files docs\/product\/releases\/azure-r<n>\.md; Git tags product\/azure-r<n>/)
   assert.equal(renderPrompt(readinessQuestion, vscode), readinessQuestion.text)
 })
@@ -290,19 +317,31 @@ test('no obsolete VS Code slash-command guidance remains', () => {
   assert.match(clientAdvice.vscode, /agents dropdown/)
 })
 
-test('every glossary term links to a section of the HVE Squad docs', () => {
+test('every glossary term links to a section of the microsoft/hve-squad docs (in English and French)', () => {
+  assert.equal(docsUrl, 'https://microsoft.github.io/hve-squad/')
+  assert.equal(docsUrlFor('fr'), 'https://microsoft.github.io/hve-squad/fr/')
   assert.equal(new Set(glossary.map(term => term.id)).size, glossary.length)
   for (const term of glossary) {
     assert.ok(term.label && term.meaning, term.id)
-    assert.match(term.url, /^https:\/\/peter-n91\.github\.io\/hve-squad\/[a-z-]+\.html(#[a-z0-9-]+)?$/, term.id)
+    assert.match(term.url, /^https:\/\/microsoft\.github\.io\/hve-squad\/[a-z0-9-]+\.html(#[a-z0-9-]+)?$/, term.id)
     assert.ok(term.url.startsWith(docsUrl), term.id)
+  }
+  assert.deepEqual(frenchContent.glossary.map(term => term.id), glossary.map(term => term.id))
+  for (const term of frenchContent.glossary) {
+    assert.ok(term.label && term.meaning, `fr:${term.id}`)
+    assert.match(term.url, /^https:\/\/microsoft\.github\.io\/hve-squad\/fr\/[a-z0-9-]+\.html(#[a-z0-9-]+)?$/, `fr:${term.id}`)
+    assert.ok(term.url.startsWith(docsUrlFor('fr')), `fr:${term.id}`)
   }
   assert.equal(conceptsUrl, `${docsUrl}concepts.html`)
   assert.equal(termById('init').url, `${conceptsUrl}#init-promote-and-work-requests`)
+  assert.equal(termById('init', 'fr').url, `${docsUrlFor('fr')}concepts.html#init-promote-and-work-requests`)
   assert.equal(termById('profile-table').url, `${docsUrl}usage.html#profiles`)
+  assert.equal(termById('economy').url, `${docsUrl}usage.html#routing-economy`)
+  assert.equal(termById('depth').url, `${docsUrl}usage.html#work-depth`)
+  assert.equal(termById('connector').url, `${docsUrl}connector.html#consumer-walkthrough`)
   assert.throws(() => termById('nope'), /Unknown glossary term/)
   assert.ok(startHereTerms.every(id => glossary.some(term => term.id === id)))
-  for (const id of ['init', 'promote', 'profile', 'pack', 'autopilot', 'team', 'federation', 'routing']) assert.ok(startHereTerms.includes(id), id)
+  for (const id of ['init', 'promote', 'profile', 'pack', 'autopilot', 'team', 'federation', 'routing', 'depth']) assert.ok(startHereTerms.includes(id), id)
 })
 
 test('lesson text links the terms it names, and the markup never leaks into what you paste', () => {
@@ -315,7 +354,9 @@ test('lesson text links the terms it names, and the markup never leaks into what
     for (const part of termParts(text)) if (typeof part !== 'string') linked.add(part.term.id)
     assert.doesNotMatch(stripTerms(fillNames(text, defaults)), /\]\(term:/, text.slice(0, 40))
   }
-  for (const id of ['init', 'promote', 'profile', 'pack', 'autopilot', 'team', 'federation', 'routing']) assert.ok(linked.has(id), `${id} is linked in the guide`)
+  for (const id of ['init', 'promote', 'profile', 'pack', 'autopilot', 'team', 'federation', 'routing', 'depth', 'economy', 'connector', 'doctor', 'coach']) {
+    assert.ok(linked.has(id), `${id} is linked in the guide`)
+  }
   for (const prompt of allPrompts) assert.doesNotMatch(prompt.text, /\]\(term:/, prompt.title)
 })
 
@@ -324,12 +365,14 @@ test('a copied message lists the terms it uses', () => {
   assert.deepEqual(promptTermIds(productInit), ['init', 'team', 'profile', 'pack'])
   assert.deepEqual(promptTermIds(azureInit), ['init', 'team', 'federation', 'profile', 'pack'])
   assert.deepEqual(promptTermIds(promote), ['promote', 'federation', 'state'])
-  assert.deepEqual(promptTermIds(workPrompt('product')), ['work-request', 'autopilot', 'routing'])
-  assert.deepEqual(promptTermIds(workPrompt('together')), ['federation', 'state'])
-  assert.deepEqual(promptTermIds(coachQuestion), ['coach'])
+  assert.deepEqual(promptTermIds(workPrompt('product')), ['work-request', 'autopilot', 'routing', 'depth'])
+  assert.deepEqual(promptTermIds(workPrompt('together')), ['federation', 'state', 'new-chat'])
+  assert.ok(promptTermIds(coachQuestion).includes('coach'))
+  assert.deepEqual(promptTermIds(doctorCheck), ['doctor', 'hve-core'])
   assert.deepEqual(promptTermIds(readinessQuestion), [])
   assert.deepEqual(promptTermIds(installation.cli), [])
   for (const prompt of allPrompts) for (const term of promptTerms(prompt)) assert.ok(term.url.startsWith(docsUrl), prompt.title)
+  for (const prompt of allPrompts) for (const term of promptTerms(prompt, 'fr')) assert.ok(term.url.startsWith(docsUrlFor('fr')), prompt.title)
 })
 
 test('the guide asks for the core ideas to be read before Part 00', () => {
@@ -338,15 +381,14 @@ test('the guide asks for the core ideas to be read before Part 00', () => {
   assert.match(readFirst.body, /init, promote, team, federation, profile, pack, autopilot/)
   assert.match(readFirst.eyebrow, /before Part 00/)
   assert.match(prepare.checks.at(-1), /core ideas/)
-  // The new checkpoint is appended: checkpoints ticked before it existed keep their meaning.
   assert.match(prepare.checks[0], /^My northwind-workshop folder exists/)
   assert.match(prepare.checks[3], /^Copilot read the case/)
   assert.match(prepare.concept, /core ideas/)
   assert.equal(sources[1].url, conceptsUrl)
-  assert.match(agenda.find(item => item.lesson === 'prepare').note, /40 min/)
+  assert.match(agenda.find(item => item.lesson === 'prepare').note, /35–45 min/)
 })
 
-test('each team setup explains what the coordinator asks and what to answer', () => {
+test('each team setup explains what the coordinator asks and guides the new azure-cloud, dotnet and power-platform packs', () => {
   for (const step of lifecycleSteps) {
     assert.ok(lifecycleExplainers[step.request.lifecycle], step.id)
     assert.ok(step.questions?.length, step.id)
@@ -360,12 +402,20 @@ test('each team setup explains what the coordinator asks and what to answer', ()
   assert.match(packs.answer, /^None\./)
   assert.match(packs.answer, /menu, not a recommendation/)
   assert.ok(packs.terms.includes('pack'))
-  for (const id of ['migration-team', 'modernization-team']) {
-    assert.match(lifecycleSteps.find(step => step.id === id).questions.find(question => /packs/.test(question.ask)).answer, /^None\./, id)
-  }
-  const power = lifecycleSteps.find(step => step.id === 'power-platform-team').questions.find(question => /packs/.test(question.ask)).answer
-  assert.match(power, /^Yes to power-platform/)
-  assert.match(power, /Skip Microsoft 365 Copilot, AWS and Foundry/)
+  const azurePack = lifecycleSteps.find(step => step.id === 'migration-team').questions.find(question => /packs/.test(question.ask))
+  assert.match(azurePack.answer, /^Yes to azure-cloud/)
+  assert.match(azurePack.answer, /microsoft\/azure-skills/)
+  assert.match(azurePack.answer, /Skip aks \(C-06/)
+  assert.ok(azurePack.terms.includes('azure-cloud-pack'))
+  const dotnetPack = lifecycleSteps.find(step => step.id === 'modernization-team').questions.find(question => /packs/.test(question.ask))
+  assert.match(dotnetPack.answer, /^Yes to dotnet/)
+  assert.match(dotnetPack.answer, /dotnet\/skills/)
+  assert.match(dotnetPack.answer, /migrate-dotnet10-to-dotnet11/)
+  assert.ok(dotnetPack.terms.includes('dotnet-pack'))
+  const power = lifecycleSteps.find(step => step.id === 'power-platform-team').questions.find(question => /packs/.test(question.ask))
+  assert.match(power.answer, /^Yes to power-platform/)
+  assert.match(power.answer, /decline the preview Copilot Studio skills/)
+  assert.ok(power.terms.includes('power-platform-pack'))
   assert.match(lifecycleExplainers.init.doesNot.join(' '), /no requirements, backlog, plan or code/)
   assert.match(lifecycleExplainers.init.does.join(' '), /\.copilot-tracking\/squad\//)
   assert.match(lifecycleExplainers.promote.doesNot.join(' '), /docs\/, knowledge-docs and the product\/\* Git tags stay/)
@@ -390,21 +440,39 @@ test('Copilot CLI is recommended, and every client has guidance', () => {
   assert.ok(troubleshooting.some(([title, body]) => title === 'Which Copilot client should I use?' && /Copilot CLI is recommended/.test(body)))
 })
 
-test('the Squad Coach is explained and offered as an optional, read-only question', () => {
+test('Part 01 prompts Squad Coach as a core step to re-imagine Northwind before planning', () => {
   const step = lesson('orient').steps.find(item => item.prompt === coachQuestion)
   assert.ok(step)
-  assert.match(step.title, /Optional/)
+  assert.match(step.title, /Re-imagine/i)
   assert.match(step.body, /read-only/)
-  assert.match(step.body, /skip the Coach and lose nothing/)
   assert.equal(coachQuestion.kind, 'question')
   assert.equal(coachQuestion.entry, 'squad-coach')
-  assert.match(coachQuestion.text, /Do not change any files/)
-  assert.doesNotMatch(renderPrompt(coachQuestion, defaults), /mode=|routing=/)
+  assert.match(coachQuestion.text, /re-imagine/i)
+  assert.match(coachQuestion.text, /azure-cloud, dotnet, power-platform/)
+  assert.match(coachQuestion.text, /Do not create or change any files/)
+  assert.doesNotMatch(renderPrompt(coachQuestion, defaults), /^mode=|routing="off" depth=/)
   assert.match(agentSelection(coachQuestion, defaults).instruction, /choose Squad Coach/)
   assert.equal(agentSelection(coachQuestion, { ...defaults, experience: 'vscode' }).identifier, 'Squad Coach')
   assert.match(agentSelection(coachQuestion, { ...defaults, experience: 'app' }).identifier, /squad-coach$/)
   assert.ok(allPrompts.filter(prompt => prompt.entry === 'squad-coach').every(prompt => prompt.kind === 'question'))
   assert.ok(allPrompts.filter(prompt => prompt.kind === 'work' || prompt.kind === 'setup').every(prompt => prompt.entry !== 'squad-coach'))
+})
+
+test('optional Part 09 covers custom agents, orchestrators and Squad Connector Contract 1.1', () => {
+  const conn = lesson('connector')
+  assert.ok(conn && conn.optional)
+  assert.equal(conn.number, '09')
+  assert.equal(conn.flow.length, 2)
+  assert.equal(conn.flow[0].prompt.entry, 'squad-external-agent-builder')
+  assert.match(conn.flow[0].prompt.text, /Contract 1\.1/)
+  assert.match(conn.flow[0].prompt.text, /transport: file/)
+  assert.equal(conn.flow[1].prompt.entry, 'squad-federation')
+  assert.deepEqual(conn.flow[1].prompt.requiresSetup, ['promote'])
+  assert.match(conn.concept, /add/)
+  assert.match(conn.concept, /replace/)
+  assert.match(conn.behaviors.join(' '), /External provenance/)
+  assert.equal(agentSelection(conn.flow[0].prompt, { experience: 'vscode' }).identifier, 'Squad External Agent Builder')
+  assert.equal(agentSelection(conn.flow[0].prompt, { experience: 'cli' }).identifier, 'hve-squad:squad-external-agent-builder')
 })
 
 test('custom team names flow through every request and are validated', () => {
@@ -477,8 +545,8 @@ test('saved state is validated, deduplicated, filtered and backward compatible',
   assert.equal(storageKey, 'hve-squad-hands-on-workshop-v1')
 })
 
-test('progress counts core checkpoints and keeps the optional part separate', () => {
-  assert.ok(optionalCheckIds.length > 0 && optionalCheckIds.every(id => id.startsWith('ado-')))
+test('progress counts core checkpoints and keeps optional parts separate', () => {
+  assert.ok(optionalCheckIds.length > 0 && optionalCheckIds.every(id => id.startsWith('ado-') || id.startsWith('connector-')))
   const result = progress([...optionalCheckIds])
   assert.equal(result.core, 0)
   assert.equal(result.percent, 0)
@@ -562,17 +630,20 @@ test('the starter zip is a valid archive with matching checksums', () => {
   }
 })
 
-test('the guide targets one HVE Squad release, everywhere', async () => {
+test('the guide targets one microsoft/hve-squad release, everywhere, with pre-transfer migration', async () => {
   assert.match(squadVersion, /^\d+\.\d+\.\d+$/)
   assert.equal(squadVersion, hveSquadRelease.version)
-  assert.equal(squadReleaseUrl, `https://github.com/Peter-N91/hve-squad/releases/tag/v${squadVersion}`)
-  assert.match(installation.apm.text, new RegExp(`hve-squad#v${squadVersion.replaceAll('.', '\\.')}`))
+  assert.equal(squadReleaseUrl, `https://github.com/microsoft/hve-squad/releases/tag/v${squadVersion}`)
+  assert.match(installation.apm.text, new RegExp(`microsoft/hve-squad#v${squadVersion.replaceAll('.', '\\.')}`))
   assert.ok(installation.cli.text.includes(`marketplace add ${pluginMarketplace}`))
   assert.ok(installation.cli.text.includes(`plugin install ${pluginId}`))
-  assert.doesNotMatch(installation.cli.text, /hve-squad-plugin|hve-squad-hve-core/)
+  assert.doesNotMatch(installation.cli.text, /hve-squad-plugin|hve-squad-hve-core|Peter-N91/)
   assert.ok(installation.cliUpdate.text.includes('marketplace update hve-squad'))
   assert.ok(installation.cliUpdate.text.includes(`plugin update ${pluginId}`))
   assert.doesNotMatch(installation.cliUpdate.text, /hve-squad-plugin|hve-squad-hve-core/)
+  assert.ok(installation.cliSwitchRepo.text.endsWith(installation.cli.text))
+  assert.match(installation.cliSwitchRepo.text, /copilot plugin uninstall hve-squad@hve-squad\ncopilot plugin marketplace remove hve-squad/)
+  assert.equal(legacyRepoMarketplace, 'Peter-N91/hve-squad#plugin')
   assert.ok(installation.cliMigrate.text.endsWith(installation.cli.text))
   assert.match(installation.cliMigrate.text, /uninstall hve-squad@hve-squad-plugin\ncopilot plugin uninstall hve-squad-hve-core@hve-squad-plugin\ncopilot plugin marketplace remove hve-squad-plugin/)
   assert.ok(sources.some(source => source.url === squadReleaseUrl))
@@ -580,39 +651,39 @@ test('the guide targets one HVE Squad release, everywhere', async () => {
   const committed = await readCommittedRelease()
   assert.deepEqual(committed, { ...hveSquadRelease })
   assert.equal(renderReleaseModule(committed), (await readFile(new URL('../src/hve-squad-release.ts', import.meta.url), 'utf8')).replace(/\r\n/g, '\n'))
-  const release = { tag_name: 'v9.8.7', html_url: 'https://github.com/Peter-N91/hve-squad/releases/tag/v9.8.7', published_at: '2027-01-01T00:00:00Z', draft: false, prerelease: false }
+  const release = { tag_name: 'v9.8.7', html_url: 'https://github.com/microsoft/hve-squad/releases/tag/v9.8.7', published_at: '2027-01-01T00:00:00Z', draft: false, prerelease: false }
   assert.deepEqual(parseRelease(release), { version: '9.8.7', tag: 'v9.8.7', url: release.html_url, publishedAt: release.published_at })
   assert.throws(() => parseRelease({ ...release, prerelease: true }), /pre-release/)
   assert.throws(() => parseRelease({ ...release, tag_name: 'v0.19.0-pre' }), /unexpected release tag/)
 })
 
-test('release discovery uses the latest stable upstream release and surfaces lookup failures', async () => {
-  const release = { tag_name: 'v0.20.0', html_url: 'https://github.com/Peter-N91/hve-squad/releases/tag/v0.20.0', published_at: '2026-11-09T16:39:40Z', draft: false, prerelease: false }
+test('release discovery uses the latest stable upstream microsoft/hve-squad release and surfaces lookup failures', async () => {
+  const release = { tag_name: 'v0.22.0', html_url: 'https://github.com/microsoft/hve-squad/releases/tag/v0.22.0', published_at: '2026-11-24T23:31:48Z', draft: false, prerelease: false }
   const result = await resolveRelease({
     token: 'test-token',
     fetchImpl: async (url, options) => {
-      assert.equal(url, 'https://api.github.com/repos/Peter-N91/hve-squad/releases/latest')
+      assert.equal(url, 'https://api.github.com/repos/microsoft/hve-squad/releases/latest')
       assert.equal(options.headers.authorization, 'Bearer test-token')
       assert.ok(options.signal instanceof AbortSignal)
       return { ok: true, json: async () => release }
     },
   })
-  assert.equal(result.version, '0.20.0')
+  assert.equal(result.version, '0.22.0')
   await assert.rejects(resolveRelease({ fetchImpl: async () => ({ ok: false, status: 403 }) }), /HTTP 403/)
   await assert.rejects(resolveRelease({ fetchImpl: async () => ({ ok: true, json: async () => ({ ...release, prerelease: true }) }) }), /pre-release/)
 })
 
-test('all clients use the self-contained plugin, with APM only as a fallback', async () => {
+test('all clients use the self-contained microsoft/hve-squad plugin, with APM only as a fallback or pack-skill installer', async () => {
   const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
-  assert.equal(pluginMarketplace, 'Peter-N91/hve-squad#plugin')
+  assert.equal(pluginMarketplace, 'microsoft/hve-squad#plugin')
   assert.equal(pluginId, 'hve-squad@hve-squad')
-  assert.match(app, /Chat: Manage Plugin Marketplaces/)
-  assert.match(app, /Chat: Open Customizations → Plugins/)
-  assert.match(app, /Fallback: install into the repository with APM/)
-  assert.doesNotMatch(app, /Install both|pair must be installed|VS Code uses the APM package|hve-squad-plugin\/install-/)
-  assert.match(prerequisites.find(item => item.what.startsWith('APM CLI')).why, /plugin does not need APM/)
+  assert.match(englishContent.ui.vscodeInstallBody(pluginMarketplace, legacyRepoMarketplace, squadVersion), /Chat: Manage Plugin Marketplaces/)
+  assert.match(englishContent.ui.vscodeInstallBody(pluginMarketplace, legacyRepoMarketplace, squadVersion), /Chat: Open Customizations → Plugins/)
+  assert.match(englishContent.ui.vscodeApmSummary, /Fallback: install into the repository with APM/)
+  assert.doesNotMatch(app, /Install both|pair must be installed|VS Code uses the APM package|hve-squad-plugin\/install-|peter-n91\.github\.io\/hve-squad\//)
+  assert.match(prerequisites.find(item => item.what.startsWith('APM CLI')).why, /do not need APM/)
   assert.match(lesson('prepare').steps.find(step => step.title === 'Install HVE Squad in your client').body, /One self-contained plugin/)
-  assert.ok(sources.every(source => !source.url.includes('hve-squad-plugin/')))
+  assert.ok(sources.every(source => !source.url.includes('hve-squad-plugin/') && !source.url.includes('peter-n91.github.io/hve-squad/')))
   for (const workflow of ['ci', 'pages']) {
     const yaml = await readFile(new URL(`../.github/workflows/${workflow}.yml`, import.meta.url), 'utf8')
     assert.match(yaml, /HVE_SQUAD_RELEASE_REQUIRED: '1'/)
@@ -639,11 +710,16 @@ test('a required release lookup fails closed while offline development keeps the
   }
 })
 
-test('the v0.20 workflow and governance guidance preserves the standard workshop baseline', () => {
+test('default settings keep routing="off" and depth="standard", while governance and pack safeguards stay explicit', () => {
   for (const settings of combinations) {
-    for (const prompt of allPrompts) assert.doesNotMatch(renderPrompt(prompt, settings), /depth=["']?quick|routing=["']?economy/)
+    for (const prompt of allPrompts) {
+      if (prompt.kind === 'shell') continue
+      const rendered = renderPrompt(prompt, settings)
+      if (prompt.kind === 'work') assert.match(rendered, /^mode="autopilot" routing="off" depth="standard"/)
+      assert.doesNotMatch(rendered, /^mode="autopilot"[^\n]*(?:depth="quick"|routing="economy")/)
+    }
   }
-  assert.match(troubleshooting.find(([title]) => title.includes('depth=quick'))[1], /standard on every turn, independently of routing/)
+  assert.match(troubleshooting.find(([title]) => title.includes('Economy'))[1], /per-turn only: quick shrinks/)
   const report = lesson('together').steps.find(step => step.title === 'Optional: a governance report').body
   for (const basis of ['exact-native', 'estimated', 'modeled', 'host-billed']) assert.ok(report.includes(basis))
   assert.match(report, /modeled counterfactual, not a measured saving/)
@@ -653,6 +729,60 @@ test('the v0.20 workflow and governance guidance preserves the standard workshop
   assert.match(power.setup[0].description, /no Dataverse connection, deployment or tenant changes/)
   assert.match(power.setup[0].questions.find(item => item.ask === 'Which packs?').answer, /Official skills require separate opt-in/)
   assert.doesNotMatch(lessonStrings(power).join('\n'), /install its two specialists|not seeded before they are installed|go on without those roles/)
+})
+
+test('French localization has full structural parity, clean rendering, French docs links and French prompts', () => {
+  assert.deepEqual(locales, ['en', 'fr'])
+  assert.equal(contentByLocale('en'), englishContent)
+  assert.equal(contentByLocale('fr'), frenchContent)
+  assert.deepEqual(frenchContent.lessons.map(item => item.id), lessons.map(item => item.id))
+  assert.deepEqual(frenchContent.lessons.map(item => item.number), lessons.map(item => item.number))
+  assert.deepEqual(frenchContent.lessons.map(item => Boolean(item.optional)), lessons.map(item => Boolean(item.optional)))
+  assert.deepEqual(frenchContent.lessons.map(item => item.track), lessons.map(item => item.track))
+  assert.deepEqual(frenchContent.lessons.map(item => item.checks.length), lessons.map(item => item.checks.length))
+  assert.deepEqual(frenchContent.agenda.map(item => item.lesson), agenda.map(item => item.lesson))
+
+  const frPrompts = [
+    frenchContent.readinessQuestion, frenchContent.readyScript, frenchContent.doctorCheck,
+    ...Object.values(frenchContent.installation),
+    ...frenchContent.lessons.flatMap(item => [
+      ...(item.setup ?? []).map(step => step.request),
+      ...(item.flow ?? []).map(flow => flow.prompt),
+      ...item.steps.flatMap(step => step.prompt ? [step.prompt] : []),
+    ]),
+  ]
+  for (const prompt of frPrompts) {
+    assert.doesNotMatch(prompt.text, /\]\(term:/, `fr:${prompt.title}`)
+    if (prompt.kind === 'setup') assert.ok(prompt.text.startsWith(`${prompt.lifecycle}\n\n`), `fr:${prompt.title}`)
+  }
+
+  for (const base of combinations) {
+    const frSettings = { ...base, language: 'fr' }
+    for (const prompt of [...allPrompts, ...frPrompts]) {
+      if (prompt.kind === 'shell') continue
+      const text = renderPrompt(prompt, frSettings)
+      assert.doesNotMatch(text, /\{(productSquad|migrationSquad|modernizationSquad|powerPlatformSquad|trackList|areaList|teamList|releaseNames|releaseTags|releaseList)\}|\[\[|\]\]/, `fr ${frSettings.tracks}/${frSettings.scope} · ${prompt.title}`)
+    }
+    for (const item of visibleLessons(frSettings)) {
+      for (const text of lessonStrings(item)) {
+        for (const part of termParts(text, 'fr')) {
+          if (typeof part !== 'string') assert.ok(part.term.url.startsWith('https://microsoft.github.io/hve-squad/fr/'), part.term.id)
+        }
+        assert.doesNotMatch(stripTerms(fillNames(text, frSettings)), /\]\(term:|\[\[|\]\]|\{(trackList|areaList|teamList|releaseNames|releaseTags|releaseList)\}/, `fr:${item.id}`)
+      }
+    }
+  }
+
+  const frProduct = renderPrompt(workPrompt('product'), { ...defaults, language: 'fr', routing: 'economy', depth: 'quick' })
+  assert.ok(frProduct.startsWith('mode="autopilot" routing="economy" depth="quick"\n\nÀ partir du dossier knowledge-docs'))
+  assert.match(frProduct, /Azure, \.NET et Power Platform/)
+  assert.match(frProduct, /tag de chantier track-azure/)
+
+  const frPublish = renderPrompt(workPrompt('ado'), { ...defaults, ...publication, language: 'fr' })
+  assert.match(frPublish, /Nos paramètres Azure DevOps :\nOrganisation Azure DevOps: "contoso"/)
+  assert.equal(decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', language: 'fr' } })).settings.language, 'fr')
+  assert.throws(() => decodeState(JSON.stringify({ schema: 1, checked: [], settings: { experience: 'cli', language: 'de' } })), /language/)
+  assert.match(agentSelection(coachQuestion, { experience: 'cli', language: 'fr' }).instruction, /Dans Copilot CLI, saisissez \/agent et choisissez Squad Coach/)
 })
 
 test('sources are https and the prerequisites are tied to their part or track', () => {

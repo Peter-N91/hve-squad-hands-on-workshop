@@ -1,54 +1,46 @@
-import { hveSquadRelease } from './hve-squad-release.ts'
+import { frenchContent } from './content.fr.ts'
+import {
+  apmCliReleaseUrl, apmCliVersion, autopilotMode, conceptsUrl, conceptsUrlFor, diagramsRequirement, diagramsVersion,
+  docsBaseUrl, docsPage, docsUrl, docsUrlFor, guideUrl, legacyRepoMarketplace, localeLabels, locales, messageAnchor,
+  pluginId, pluginMarketplace, releaseFile, releaseName, releaseTag, squadReleaseUrl, squadVersion, startHereTerms,
+  suggestedSquads, trackTag,
+} from './types.ts'
+import type {
+  AgendaItem, Answer, Client, Depth, EntryAgent, FlowItem, InstallationKeys, Lesson, LessonStep, LifecycleStep,
+  Locale, OptionItem, Prerequisite, Prompt, PromptKind, PublicationField, ReviewKey, Routing, Scope, SetupId,
+  SetupQuestion, SquadKey, StudioNote, Term, Track, TrackId, TrackMode, UiCopy, WorkshopLocaleContent,
+} from './types.ts'
 
-/**
- * A delivery track is one business area delivered by one federation team, from numbered releases
- * (r1, r2…) the product team tags. Tracks are independent: a participant builds all tracks, one
- * track or a selection, and the parts of tracks they did not choose are hidden. To add a track, add it here, give it a lesson
- * with the same `track`, an agenda row, a squad name and a SetupId.
- */
-export type TrackId = 'azure' | 'dotnet' | 'powerPlatform'
-export type SetupId = 'product-team' | 'promote' | 'migration-team' | 'modernization-team' | 'power-platform-team'
-export type SquadKey = 'productSquad' | 'migrationSquad' | 'modernizationSquad' | 'powerPlatformSquad'
-export type Scope = 'full' | 'focused'
-export type TrackMode = 'all' | 'one' | 'selected'
-
-export type Track = {
-  id: TrackId
-  label: string
-  /** Used in the backlog tag, the release file and the Git tag. */
-  slug: string
-  area: string
-  areaName: string
-  summary: string
-  produces: string
-  lessonId: string
-  setupId: SetupId
-  squadKey: SquadKey
+export {
+  apmCliReleaseUrl, apmCliVersion, autopilotMode, conceptsUrl, conceptsUrlFor, diagramsRequirement, diagramsVersion,
+  docsBaseUrl, docsPage, docsUrl, docsUrlFor, frenchContent, guideUrl, legacyRepoMarketplace, localeLabels, locales,
+  pluginId, pluginMarketplace, releaseFile, releaseName, releaseTag, squadReleaseUrl, squadVersion, startHereTerms,
+  suggestedSquads, trackTag,
+}
+export type {
+  AgendaItem, Answer, Client, Depth, EntryAgent, FlowItem, InstallationKeys, Lesson, LessonStep, LifecycleStep,
+  Locale, OptionItem, Prerequisite, Prompt, PromptKind, PublicationField, ReviewKey, Routing, Scope, SetupId,
+  SetupQuestion, SquadKey, StudioNote, Term, Track, TrackId, TrackMode, UiCopy, WorkshopLocaleContent,
 }
 
 export const tracks: Track[] = [
   {
     id: 'azure', label: 'Azure', slug: 'azure', area: 'BA-01', areaName: 'Platform and data-centre exit',
-    summary: 'Plans the move of Order Desk to Azure: blockers found in the code, target architecture, Bicep, cost and a migration plan.',
+    summary: 'Plans the move of Order Desk to Azure with the azure-cloud pack: blockers found in the code, target architecture, Bicep, cost and a migration plan.',
     produces: 'Blockers · HLD/LLD · Bicep · cost', lessonId: 'migration', setupId: 'migration-team', squadKey: 'migrationSquad',
   },
   {
     id: 'dotnet', label: '.NET', slug: 'dotnet', area: 'BA-02', areaName: 'Ordering and customer self-service',
-    summary: 'Upgrades Order Desk in place from .NET Framework 4.8 to .NET 10 — the enabler the Customer Portal depends on — with the pricing tests unchanged.',
+    summary: 'Upgrades Order Desk in place from .NET Framework 4.8 to .NET 10 with the dotnet pack — the enabler the Customer Portal depends on — with the pricing tests unchanged.',
     produces: '4.8 → .NET 10 · tests stay green', lessonId: 'modernize', setupId: 'modernization-team', squadKey: 'modernizationSquad',
   },
   {
     id: 'powerPlatform', label: 'Power Platform', slug: 'power-platform', area: 'BA-03', areaName: 'Delivery claims and credit notes',
-    summary: 'Designs the delivery-claims solution: Dataverse model, app, approval flow, Order Desk and Finance integration, environments and licences.',
+    summary: 'Designs the delivery-claims solution with the power-platform pack: Dataverse model, app, approval flow, Order Desk and Finance integration, environments and licences.',
     produces: 'Dataverse · app · approvals · connector', lessonId: 'powerplatform', setupId: 'power-platform-team', squadKey: 'powerPlatformSquad',
   },
 ]
 export const trackIds = tracks.map(track => track.id)
-export const trackTag = (track: Track) => `track-${track.slug}`
-/** A track can have several releases, numbered in delivery order. The name is also the backlog item's release tag. */
-export const releaseName = (track: Track, n: number | string = 1) => `${track.slug}-r${n}`
-export const releaseTag = (track: Track, n: number | string = 1) => `product/${releaseName(track, n)}`
-export const releaseFile = (track: Track, n: number | string = 1) => `docs/product/releases/${releaseName(track, n)}.md`
 
 export const trackNote = 'Tracks are independent. Each track team builds only from its own releases and never waits for another; dependencies between tracks are recorded as open items. In a group session, each table can take a different track. A track you do not choose is hidden from this guide, and part numbers stay the same for everyone.'
 
@@ -58,106 +50,11 @@ export const trackModeOptions: { value: TrackMode; label: string; summary: strin
   { value: 'selected', label: 'Selected tracks', summary: 'Tick the tracks you build. The others are hidden.' },
 ]
 
-export const scopeOptions: { value: Scope; label: string; summary: string; detail: string }[] = [
+export const scopeOptions: OptionItem<Scope>[] = [
   { value: 'full', label: 'Whole case', summary: 'Documents and a backlog for every business area; releases only for the chosen tracks.', detail: 'The product team covers the whole business case and tags every backlog item with its track, including areas no team takes today, so a track can be added later without rewriting the documents. Only the tracks you chose get releases.' },
   { value: 'focused', label: 'Chosen areas only', summary: 'Documents and a backlog only for the business areas of your tracks.', detail: 'The product team writes the BRD, PRD, experiments and backlog only for the business areas of the tracks you chose, and lists the other areas as out of scope. Shorter, and focused on what your teams will build.' },
 ]
 
-/**
- * Text in prompts and lessons can adapt to the participant's choices:
- *   {productSquad} {migrationSquad} {modernizationSquad} {powerPlatformSquad}  registered team names
- *   {trackList} {areaList} {teamList} {releaseNames} {releaseTags} {releaseList}  the chosen tracks
- *   [[condition:text]]  keeps text only when the condition holds. A condition is a track id,
- *   "full" or "focused" (the product scope); "a|b" means either, "a+b" means both.
- */
-export type Answer = { question: string; answer: string; tracks: TrackId[] }
-
-/**
- * setup    — init or promote; never autopilot
- * work     — a business outcome; always mode="autopilot"
- * question — a read-only question to a coordinator; no autopilot
- * plain    — asked to the default Copilot agent, not the squad
- * shell    — a terminal command
- */
-export type PromptKind = 'setup' | 'work' | 'question' | 'plain' | 'shell'
-
-export type Prompt = {
-  title: string
-  kind: PromptKind
-  text: string
-  bash?: string
-  entry?: 'squad' | 'squad-federation' | 'squad-coach'
-  lifecycle?: 'init' | 'promote'
-  /** Setup steps of tracks the participant did not choose are ignored. */
-  requiresSetup?: SetupId[]
-  requiresChecks?: string[]
-  squadTarget?: SquadKey
-  publication?: boolean
-  /** Glossary term ids listed under the block as links to the docs. Setup and work requests get a default list. */
-  terms?: string[]
-}
-
-/** What the coordinator is likely to ask while it sets a team up, and what to answer in this workshop. */
-export type SetupQuestion = { ask: string; answer: string; terms?: string[] }
-
-export type LifecycleStep = {
-  id: SetupId
-  title: string
-  description: string
-  request: Prompt
-  questions?: SetupQuestion[]
-  expected: string[]
-  checkpoint: string
-}
-
-export type FlowItem = { heading: string; hint: string; prompt: Prompt }
-export type LessonStep = { title: string; body: string; prompt?: Prompt }
-export type ReviewKey = { title: string; intro: string; items: { label: string; detail: string }[] }
-
-export type Lesson = {
-  id: string
-  number: string
-  title: string
-  eyebrow: string
-  minutes: number
-  optional?: boolean
-  track?: TrackId
-  goal: string
-  concept: string
-  inputs: string[]
-  setup?: LifecycleStep[]
-  flow?: FlowItem[]
-  behaviors?: string[]
-  answers?: Answer[]
-  reviewKey?: ReviewKey
-  steps: LessonStep[]
-  evidence: string[]
-  checks: string[]
-  recovery: string
-}
-
-export const squadVersion: string = hveSquadRelease.version
-export const squadReleaseUrl: string = hveSquadRelease.url
-export const pluginMarketplace = 'Peter-N91/hve-squad#plugin'
-export const pluginId = 'hve-squad@hve-squad'
-export const apmCliVersion = 'v0.29.0'
-export const apmCliReleaseUrl = `https://github.com/microsoft/apm/releases/tag/${apmCliVersion}`
-/** diagrams 0.25.0 moved its Azure nodes to Microsoft's Azure icons V18; 0.25.1 fixed the packaged icons. */
-export const diagramsVersion = '0.25.1'
-export const diagramsRequirement = `diagrams>=${diagramsVersion}`
-export const autopilotMode = 'mode="autopilot"'
-export const guideUrl = 'https://peter-n91.github.io/hve-squad-hands-on-workshop/'
-export const docsUrl = 'https://peter-n91.github.io/hve-squad/'
-export const docsPage = (page: string, anchor = '') => `${docsUrl}${page}${anchor ? `#${anchor}` : ''}`
-export const conceptsUrl = docsPage('concepts.html')
-
-/**
- * A word this guide uses that the HVE Squad documentation explains. Lesson text links a term inline with
- * [label](term:id); the block under a copied message lists the terms that message uses. The anchors are
- * ids on the docs' Concepts page (and Usage), so a link goes straight to the section that explains it.
- */
-export type Term = { id: string; label: string; meaning: string; url: string }
-const messageAnchor = 'init-promote-and-work-requests'
 export const glossary: Term[] = [
   { id: 'concepts', label: 'core ideas', meaning: 'One ten-minute page that defines every word this guide uses.', url: conceptsUrl },
   { id: 'init', label: 'init', meaning: 'Creates one team\'s state files after you confirm a proposal. It starts no work.', url: docsPage('concepts.html', messageAnchor) },
@@ -167,63 +64,71 @@ export const glossary: Term[] = [
   { id: 'federation', label: 'federation', meaning: 'Several independent teams in one repository, with a registry that routes work between them.', url: docsPage('concepts.html', 'teams-and-federations') },
   { id: 'profile', label: 'profile', meaning: 'The kind of team you create: a ready-made cast of roles for one type of work.', url: docsPage('concepts.html', 'profiles-and-packs') },
   { id: 'profile-table', label: 'what each profile contains', meaning: 'Every profile and the roles it seeds, in the Usage reference.', url: docsPage('usage.html', 'profiles') },
-  { id: 'pack', label: 'pack', meaning: 'An optional set of technology specialists added on top of a profile. Skip it unless your project uses that technology.', url: docsPage('concepts.html', 'packs-are-optional') },
+  { id: 'pack', label: 'pack', meaning: 'An optional set of technology specialists or official skills added on top of a profile.', url: docsPage('concepts.html', 'packs-are-optional') },
+  { id: 'azure-cloud-pack', label: 'azure-cloud pack', meaning: 'Optional Azure pack adding 14 pinned official microsoft/azure-skills entries for FinOps, compliance, reliability, diagnostics and cloud migration.', url: docsPage('usage.html', 'azure-cloud-setup') },
+  { id: 'dotnet-pack', label: 'dotnet pack', meaning: 'Optional .NET pack adding 20 pinned official dotnet/skills entries for SDK upgrades, MSBuild, test migration, breaking-change review and performance.', url: docsPage('usage.html', 'dotnet-setup') },
+  { id: 'power-platform-pack', label: 'power-platform pack', meaning: 'Optional Power Platform pack combining bundled local Primary agents with opt-in official skills and community Alternates.', url: docsPage('usage.html', 'power-platform-setup') },
   { id: 'autopilot', label: 'autopilot', meaning: 'The team runs research, plan, build and review on its own and asks only for the decisions that matter. Without a mode, a request is interactive: it asks before every step.', url: docsPage('concepts.html', 'autonomy-modes') },
   { id: 'host-approvals', label: 'your client\'s approvals', meaning: 'Autopilot does not switch off your client\'s own prompts to edit files or run commands.', url: docsPage('concepts.html', 'squad-autopilot-vs-host-approvals') },
-  { id: 'routing', label: 'model routing', meaning: 'How each role\'s AI model is chosen: routing="off", "ranked" or "manual". Not the same as request routing.', url: docsPage('usage.html', 'model-selection-per-role') },
+  { id: 'routing', label: 'model routing', meaning: 'How each role\'s AI model is chosen: routing="off", "ranked", "economy" or "manual". Saved in team.md.', url: docsPage('usage.html', 'model-selection-per-role') },
+  { id: 'economy', label: 'economy routing', meaning: 'Cost-first model routing across all routed roles inside each role\'s minimum quality floor, activated after one-time explicit consent.', url: docsPage('usage.html', 'routing-economy') },
+  { id: 'depth', label: 'work depth', meaning: 'Per-turn work budget (depth="standard" or "quick") that shrinks eligible work stages without changing models or skipping gates.', url: docsPage('usage.html', 'work-depth') },
   { id: 'state', label: 'squad state', meaning: 'The files under .copilot-tracking/squad/ where a team keeps its roster, decisions and history. The chat is not the memory.', url: docsPage('concepts.html', 'state-folder') },
   { id: 'deliverables', label: 'where deliverables go', meaning: 'The folder each role writes to, and how to change it in team.md.', url: docsPage('concepts.html', 'where-deliverables-go') },
   { id: 'new-chat', label: 'new conversation', meaning: 'Starting a fresh chat is safe: the squad rereads its files at every turn.', url: docsPage('concepts.html', 'new-chats') },
-  { id: 'coach', label: 'Squad Coach', meaning: 'An advice-only agent that explains HVE Squad and hands you copy-ready messages. It never changes anything.', url: docsPage('concepts.html', 'squad-coach') },
+  { id: 'coach', label: 'Squad Coach', meaning: 'An advice-only agent that explores your repo, helps re-imagine what is there, explains HVE Squad and hands you copy-ready messages without changing files.', url: docsPage('concepts.html', 'squad-coach') },
+  { id: 'studio', label: 'HVE Squad Studio', meaning: 'Guided plain-language visual workspace in the Copilot App for non-technical users and beginners.', url: docsPage('getting-started.html', 'use-hve-squad-studio') },
+  { id: 'doctor', label: 'Squad Doctor', meaning: 'Deterministic post-install and post-upgrade health check and controlled repair agent.', url: docsPage('troubleshooting.html') },
+  { id: 'connector', label: 'Squad Connector', meaning: 'Contract 1.1 file-envelope bridge that delegates bounded work roles to your own external agents or orchestrators.', url: docsPage('connector.html', 'consumer-walkthrough') },
   { id: 'inputs', label: 'what the squad works from', meaning: 'There is no required folder layout: you name the files the team should read.', url: docsPage('concepts.html', 'inputs') },
-  { id: 'hve-core', label: 'HVE Core', meaning: 'The library of agents and skills that does the engineering work. HVE Squad routes work to it and remembers what happened.', url: docsPage('concepts.html', 'hve-squad-and-hve-core') },
+  { id: 'hve-core', label: 'HVE Core', meaning: 'The library of agents and skills that does the engineering work. HVE Squad bundles and pins it.', url: docsPage('concepts.html', 'hve-squad-and-hve-core') },
 ]
-/** The terms of the Start here panel, in reading order. */
-export const startHereTerms = ['init', 'promote', 'work-request', 'team', 'federation', 'profile', 'pack', 'autopilot', 'routing', 'state']
-
-export const suggestedSquads: Record<SquadKey, string> = {
-  productSquad: 'product',
-  migrationSquad: 'azure-migration',
-  modernizationSquad: 'dotnet-modernization',
-  powerPlatformSquad: 'power-platform',
-}
 
 export const modeRule = {
   title: 'Three kinds of message — and only one uses autopilot',
-  body: 'Setup messages ([init](term:init) and [promote](term:promote)) never include mode="autopilot": you confirm each proposal yourself. Work requests always include it, together with the [model routing](term:routing) you choose, so the squad runs research → plan → build → review on its own and stops only for the decisions that matter. Without a mode a request would be interactive: the squad would ask before every step. Questions (readiness, status) have no mode at all. The guide adds the right form to every copied block; you never type it yourself. [Autopilot](term:autopilot) is the squad\'s own mode: your client can still ask before it edits a file or runs a command (see [your client\'s approvals](term:host-approvals)).',
+  body: 'Setup messages ([init](term:init) and [promote](term:promote)) never include mode="autopilot": you confirm each proposal yourself. Work requests always include it, together with the [model routing](term:routing) and [work depth](term:depth) you choose, so the squad runs research → plan → build → review on its own and stops only for the decisions that matter. Questions and builders ([Squad Coach](term:coach), [Squad Doctor](term:doctor), status, connectors) have no autopilot mode. [Autopilot](term:autopilot) is the squad\'s own mode: your client can still ask before it edits a file or runs a command (see [your client\'s approvals](term:host-approvals)).',
 }
 
-export type Routing = 'off' | 'ranked' | 'manual'
-export const routingOptions: { value: Routing; label: string; summary: string; detail: string }[] = [
-  { value: 'off', label: 'Off', summary: 'Every role uses your session model.', detail: 'No model is chosen per role: each specialist runs on its own default or on the model you selected in your client. The simplest and most predictable option, and the package default.' },
-  { value: 'ranked', label: 'Ranked', summary: 'The squad picks the best-fitting model for each role.', detail: 'Each role is matched to the model that best fits its kind of work (research, planning, implementation, review…) among the models your client offers, at the lowest cost for that fit. The picks appear in a Model column in team.md.' },
-  { value: 'manual', label: 'Manual', summary: 'You choose each role\'s model once, with suggestions.', detail: 'Before the first dispatch the squad asks you: accept all suggestions, pick one model per kind of work, or pick per role. Only models your client can run are offered. Your picks are saved in team.md.' },
+export const routingOptions: OptionItem<Routing>[] = [
+  { value: 'off', label: 'Off', summary: 'Every role uses its pinned model or your session model.', detail: 'No model is computed per role: each specialist runs on its own default or on the model you selected in your client. The simplest, most comparable option, and the package default.' },
+  { value: 'ranked', label: 'Ranked', summary: 'The squad picks the strongest fitting model for each role.', detail: 'Each role is matched to the benchmarked model that best fits its assignment class (research, planning, implementation, review, council, intake) among the models your client offers, with confidence and cost breaking ties. Picks appear in a Model column in team.md.' },
+  { value: 'economy', label: 'Economy', summary: 'Cost-first across all routed roles inside each role\'s quality floor.', detail: 'Every routed role gets the cheapest host-available model with a known price inside its own Model Tier floor (class qualification preferred and disclosed; never a silent Ranked hold). Requires a one-time all-roles consent before first dispatch; gates stay unchanged, and a role that fails review can escalate once to its Ranked pick.' },
+  { value: 'manual', label: 'Manual', summary: 'You choose each role\'s model once, with ranked suggestions.', detail: 'Before the first dispatch the squad asks you: accept all suggestions, pick one model per assignment class, or pick per role from host-available floor-eligible models. Your picks are saved in team.md.' },
 ]
-export const routingNote = 'The choice is saved in each team\'s team.md and stays in effect until you change it. The guide repeats it on every work request so it is always explicit. Routing never changes the session model you selected: that model runs the coordinator.'
+export const routingNote = 'Model routing is saved in each team\'s team.md and stays in effect until you change it. The guide repeats it on every work request so it is always explicit. Routing never changes the session model you selected: that model runs the coordinator.'
+
+export const depthOptions: OptionItem<Depth>[] = [
+  { value: 'standard', label: 'Standard', summary: 'Full Research → Plan → Implement → Review pipeline on every turn.', detail: 'Runs complete research waves, an alternatives matrix in planning and the full implementation scope. Best for deep discovery, architecture comparison and the comparable baseline.' },
+  { value: 'quick', label: 'Quick', summary: 'Tighter work budget on this turn without changing models or skipping gates.', detail: 'Shrinks eligible work stages on this turn (1 Wider research wave of up to 2 lanes, 1 recommended plan approach without an alternatives matrix, minimal implementation diff, reasoning_effort: low where supported). Never saved to team.md, never changes any role\'s model, and never skips Risk, Impactful-Action, intake, council, security or final tester gates. A shrunk role has a one-time escape hatch back to standard depth if blocked.' },
+]
+export const depthNote = 'Unlike routing, depth is per-turn only and is never written to team.md. The two choices compose freely: for example routing="ranked" depth="quick" (strongest per-role models, tighter pass) or routing="economy" depth="standard" (lowest-cost eligible models, full pipeline).'
+
+export const studioNote: StudioNote = {
+  eyebrow: 'Good to know in the Copilot App · HVE Squad Studio',
+  title: 'For non-technical stakeholders: HVE Squad Studio',
+  body: 'The plugin also ships [HVE Squad Studio](term:studio) in the Copilot App: a guided visual workspace with a plain-language Goal Launcher, document upload with automatic Intake Gate checkups, auto-detected platform packs and tangible deliverable cards — no chat commands needed. This workshop uses direct coordinator messages on purpose so you see every mechanism (federation, packs, routing, depth and connectors) under the hood.',
+}
 
 export const modelGuidance = {
   title: 'Pick a strong session model before you start — and keep it',
-  body: 'Your session model runs the coordinator, which reads the roster, plans the stages and dispatches every role; model routing never changes it. Start on a fixed, balanced model at least as capable as Claude Sonnet 5.5 (for example claude-sonnet-5.5 or gpt-6-sol) and keep it for the whole workshop. Do not use Auto or a small, fast model: they tend to summarize the instructions instead of following them, which shows up as skipped logging, empty decision records, unexpected dispatches and very different token usage between participants. Record the session model and your routing choice in your evidence log.',
+  body: 'Your session model runs the coordinator, which reads the roster, plans the stages and dispatches every role; model routing never changes it. Start on a fixed, balanced model at least as capable as Claude Sonnet 5.5 (for example claude-sonnet-5.5 or gpt-6-sol) and keep it for the whole workshop. Do not use Auto or a small, fast model: they tend to summarize the instructions instead of following them, which shows up as skipped logging, empty decision records, unexpected dispatches and very different token usage between participants. Record the session model, routing and depth in your evidence log.',
 }
 
 export const observationNote = 'These are behaviors to watch for, not instructions to paste. Record what actually happens in your evidence log. If something is missing, note it rather than adding it to the request: that is how we learn what the squad does on its own.'
 
-/** The reading that comes before Part 00: shown on the overview and at the top of Part 00. */
 export const readFirst = {
   eyebrow: 'Step 0 · before Part 00 · about 10 minutes',
   title: 'Start here: read the core ideas',
-  body: 'The squad uses a few words from the very first message you send: init, promote, team, federation, profile, pack, autopilot. Each has a short section on one page of the HVE Squad documentation. Read that page once before you install anything. You do not need to remember it: this guide links every term back to its explanation, and each message you copy lists the terms it uses.',
+  body: 'The squad uses a few words from the very first message you send: init, promote, team, federation, profile, pack, autopilot, routing, depth. Each has a short section on one page of the HVE Squad documentation. Read that page once before you install anything. You do not need to remember it: this guide links every term back to its explanation, and each message you copy lists the terms it uses.',
   action: 'Read the core ideas (10 min)',
 }
 
-/** What each Copilot client is good for in this workshop. The CLI is the recommended path. */
-export const clientAdvice: Record<'cli' | 'app' | 'vscode', string> = {
+export const clientAdvice: Record<Client, string> = {
   cli: 'Recommended for this workshop: the quickest to start, and the client used in HVE Squad demos.',
-  app: 'A good choice if you would rather not use a terminal.',
+  app: 'A good choice if you would rather not use a terminal (and also hosts the visual HVE Squad Studio canvas).',
   vscode: 'Also works: choose the squad agent from the agents dropdown in Copilot Chat. For this workshop we recommend the CLI or the App.',
 }
 
-/** Shown after a setup message: why a fresh conversation is safe, and how to start one in each client. {agent} is the agent to select again. */
 export const newConversation = {
   title: 'Then start a new conversation',
   why: 'Recommended, and nothing is lost. The squad does not rely on the chat: it keeps its decisions and history in files under .copilot-tracking/squad/ and rereads them at every turn, so a fresh conversation resumes exactly where the files say you are. It also starts with a small context, which keeps the next step focused.',
@@ -234,7 +139,6 @@ export const newConversation = {
   },
 }
 
-/** What a setup message does and does not produce, shown before the message so nobody expects the work to start. */
 export const lifecycleExplainers: Record<'init' | 'promote', { title: string; does: string[]; doesNot: string[] }> = {
   init: {
     title: 'What init does — and does not do',
@@ -260,24 +164,13 @@ export const lifecycleExplainers: Record<'init' | 'promote', { title: string; do
   },
 }
 
-export type Prerequisite = {
-  what: string
-  why: string
-  part: string
-  check: string
-  windows: string
-  mac: string
-  scope: 'everyone' | 'client' | 'later'
-  track?: TrackId
-}
-
 export const prerequisites: Prerequisite[] = [
   { what: 'GitHub account with Copilot', why: 'Runs every agent in the workshop.', part: 'All parts', check: 'Sign in to your Copilot client', windows: 'Ask your GitHub admin for a Copilot Business or Enterprise seat', mac: 'Same as Windows', scope: 'everyone' },
   { what: 'One Copilot client', why: 'Where you talk to the squad. We recommend Copilot CLI; the App suits people who would rather not use a terminal; VS Code also works. Pick one and stay with it.', part: 'All parts', check: 'copilot --version / App opens / VS Code Copilot Chat', windows: 'CLI: winget install GitHub.Copilot · App: github.com/features/copilot · VS Code: code.visualstudio.com', mac: 'CLI: brew install --cask copilot-cli · App: github.com/features/copilot · VS Code: code.visualstudio.com', scope: 'everyone' },
   { what: 'Git', why: 'Your workshop folder is a Git repository so every change is visible and reversible, and the product releases are Git tags.', part: 'All parts', check: 'git --version', windows: 'winget install --id Git.Git -e', mac: 'xcode-select --install', scope: 'everyone' },
-  { what: 'PowerShell 7+ (pwsh)', why: 'The squad\'s Scribe writes the cost ledger and checks it with PowerShell 7 scripts, and model routing uses one too. Windows PowerShell 5.1 is not enough. Without it the squad falls back to slower, less reliable hand-written ledgers.', part: 'All parts', check: 'pwsh --version', windows: 'winget install --id Microsoft.PowerShell -e', mac: 'brew install --cask powershell', scope: 'everyone' },
-  { what: `HVE Squad ${squadVersion}`, why: 'The squad coordinators and their specialists. The guide always targets the latest HVE Squad release.', part: 'All parts', check: 'Step 3 below', windows: 'Installed in step 3, per client', mac: 'Installed in step 3, per client', scope: 'everyone' },
-  { what: `APM CLI ${apmCliVersion} (exactly)`, why: 'Only for the repository-local VS Code fallback, or consented installation of external Power Platform Alternates or optional skills. The self-contained plugin does not need APM; the pack\'s local Primary agents are bundled.', part: 'APM fallback · optional pack resources', check: 'apm --version → 0.29.0', windows: "$env:VERSION = 'v0.29.0'; irm https://aka.ms/apm-windows | iex", mac: 'curl -sSL https://aka.ms/apm-unix | sh -s -- @v0.29.0', scope: 'client' },
+  { what: 'PowerShell 7+ (pwsh)', why: 'The squad\'s Scribe writes the cost ledger and checks it with PowerShell 7 scripts, and model routing, work depth and connector registration use them too. Windows PowerShell 5.1 is not enough.', part: 'All parts', check: 'pwsh --version', windows: 'winget install --id Microsoft.PowerShell -e', mac: 'brew install --cask powershell', scope: 'everyone' },
+  { what: `HVE Squad ${squadVersion}`, why: 'The squad coordinators, Coach, Doctor, connector builders and their specialists. The guide always targets the latest microsoft/hve-squad release.', part: 'All parts', check: 'Step 3 below + Squad Doctor check', windows: 'Installed in step 3, per client', mac: 'Installed in step 3, per client', scope: 'everyone' },
+  { what: `APM CLI ${apmCliVersion} (exactly)`, why: 'Only if you consent to installing optional external official skills or community Alternates from the azure-cloud, dotnet or power-platform packs, or for the repository-local VS Code fallback. The self-contained plugin and its bundled local agents do not need APM.', part: 'Optional pack skills · APM fallback', check: 'apm --version → 0.29.0', windows: "$env:VERSION = 'v0.29.0'; irm https://aka.ms/apm-windows | iex", mac: 'curl -sSL https://aka.ms/apm-unix | sh -s -- @v0.29.0', scope: 'client' },
   { what: 'Azure CLI with Bicep', why: 'Lets you check the infrastructure code locally. No Azure sign-in, no subscription.', part: 'Azure track · Part 05 (recommended)', check: 'az bicep version', windows: 'winget install --id Microsoft.AzureCLI -e, then az bicep install', mac: 'brew install azure-cli, then az bicep install', scope: 'later', track: 'azure' },
   { what: `uv and the Python diagrams library ${diagramsVersion}+`, why: 'The Azure team draws the HLD and LLD with the Python diagrams library and the latest Azure icons (Azure icons V18). uv runs it without a Python setup and fetches the library on first use.', part: 'Azure track · Part 05 (required)', check: `uv run --with "${diagramsRequirement}" python -c "import diagrams.azure.compute"`, windows: 'winget install --id astral-sh.uv -e', mac: 'brew install uv', scope: 'later', track: 'azure' },
   { what: 'Graphviz', why: 'The rendering engine behind the diagrams library. A system program, not a Python package.', part: 'Azure track · Part 05 (required)', check: 'dot -V', windows: `winget install --id Graphviz.Graphviz -e (elevated). winget does not add it to PATH: run [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\\Program Files\\Graphviz\\bin', 'User'), then restart the terminal and your Copilot client`, mac: 'brew install graphviz', scope: 'later', track: 'azure' },
@@ -289,103 +182,129 @@ export const notNeeded = ['An Azure subscription', 'A Power Platform environment
 export const pwshNote = 'Restart your Copilot client after installing PowerShell 7, or after adding Graphviz to PATH, so it finds pwsh and dot. On macOS and Linux you keep using your usual shell; pwsh only needs to be installed. Rows for tracks you did not choose are hidden.'
 
 const cliInstallCommands = `copilot plugin marketplace add ${pluginMarketplace}\ncopilot plugin install ${pluginId}\ncopilot plugin list`
-export const installation: Record<'cli' | 'cliUpdate' | 'cliMigrate' | 'apm', Prompt> = {
+export const installation: Record<InstallationKeys, Prompt> = {
   cli: {
+    promptId: 'cli-install',
     title: 'Install the self-contained HVE Squad plugin (Copilot CLI)', kind: 'shell',
     text: cliInstallCommands,
   },
   cliUpdate: {
-    title: `Update the self-contained plugin to ${squadVersion}`, kind: 'shell',
+    promptId: 'cli-update',
+    title: `Update the self-contained plugin to v${squadVersion}`, kind: 'shell',
     text: `copilot plugin marketplace update hve-squad\ncopilot plugin update ${pluginId}\ncopilot plugin list`,
   },
+  cliSwitchRepo: {
+    promptId: 'cli-switch-repo',
+    title: `Switch from the pre-transfer ${legacyRepoMarketplace} marketplace to ${pluginMarketplace}`, kind: 'shell',
+    text: `copilot plugin uninstall ${pluginId}\ncopilot plugin marketplace remove hve-squad\n${cliInstallCommands}`,
+  },
   cliMigrate: {
+    promptId: 'cli-migrate',
     title: 'Migrate from the retired two-plugin marketplace', kind: 'shell',
     text: `copilot plugin uninstall hve-squad@hve-squad-plugin\ncopilot plugin uninstall hve-squad-hve-core@hve-squad-plugin\ncopilot plugin marketplace remove hve-squad-plugin\n${cliInstallCommands}`,
   },
   apm: {
+    promptId: 'apm-install',
     title: `Install HVE Squad v${squadVersion} into the workshop folder (VS Code)`, kind: 'shell',
-    text: `apm --version\napm install "Peter-N91/hve-squad#v${squadVersion}" --target copilot`,
+    text: `apm --version\napm install "microsoft/hve-squad#v${squadVersion}" --target copilot`,
   },
 }
 
 export const readyScript: Prompt = {
+  promptId: 'ready-script',
   title: 'Check your machine and prepare Git', kind: 'shell',
   text: 'powershell -ExecutionPolicy Bypass -File tools\\ready.ps1',
   bash: 'bash tools/ready.sh',
 }
 
+export const doctorCheck: Prompt = {
+  promptId: 'doctor-check',
+  title: 'Verify the installation with Squad Doctor', kind: 'question', entry: 'squad-doctor', terms: ['doctor', 'hve-core'],
+  text: 'check',
+}
+
 export const readinessQuestion: Prompt = {
+  promptId: 'readiness-question',
   title: 'Ask Copilot to read the case (no squad yet)', kind: 'plain',
   text: 'Read knowledge-docs/business-case.md, knowledge-docs/current-state.md and knowledge-docs/engineering-standards.md in this repository. Answer in plain language:\n1. What does Northwind want, in two sentences?\n2. Which business areas (BA-) does the case define, and which delivery track owns each one?\n3. What is the hard deadline, and which identifier states it?\n4. Which .NET version does Order Desk use today, according to current-state.md and the projects in src/?\nDo not create or change any files.',
 }
 
 export const coachQuestion: Prompt = {
-  title: 'Ask the Squad Coach (read-only, optional)', kind: 'question', entry: 'squad-coach', terms: ['coach'],
-  text: 'I am about to follow the Northwind hands-on workshop: turn knowledge-docs/business-case.md into product documents with one team, then open a federation with one team per delivery track. In plain language: what do init, promote, a profile and a pack mean, which profile and packs would you pick for the first team, and which message do I send first? Do not change any files.',
+  promptId: 'coach-question',
+  title: 'Ask Squad Coach to re-imagine Northwind and map your setup', kind: 'question', entry: 'squad-coach', terms: ['coach', 'profile', 'pack', 'routing', 'depth'],
+  text: 'Explore knowledge-docs/business-case.md, knowledge-docs/current-state.md, knowledge-docs/engineering-standards.md and the existing code in src/ and database/.\n1. Help me re-imagine what is here: beyond a mechanical lift-and-shift, what high-value product, architecture, automation or self-service opportunities fit Northwind while respecting constraints C-01 to C-08?\n2. How would you structure HVE Squad on this repository (an initial product team followed by one federation team per delivery track), and which profiles and new packs (azure-cloud, dotnet, power-platform…) fit each team?\n3. When should I use ranked versus economy model routing, and standard versus quick work depth during this workshop?\n4. Give me the ordered runbook and the first copy-ready message to send. Do not create or change any files.',
 }
 
 const releaseShell: Prompt = {
+  promptId: 'product-tags',
   title: 'List the release tags', kind: 'shell',
   text: 'git tag -l "product/*"\ngit log --oneline --decorate -3',
 }
 
-export const agenda: { lesson: string; title: string; minutes: number; note?: string; optional?: boolean }[] = [
-  { lesson: 'prepare', title: 'Get ready', minutes: 0, note: 'Before the session · about 40 min' },
-  { lesson: 'orient', title: 'Meet Northwind & the method', minutes: 15 },
-  { lesson: 'product', title: 'Shape the product', minutes: 60 },
-  { lesson: 'ado', title: 'Publish to Azure DevOps', minutes: 20, optional: true },
+export const agenda: AgendaItem[] = [
+  { lesson: 'prepare', title: 'Get ready', minutes: 0, note: 'Before the session · 35–45 min' },
+  { lesson: 'orient', title: 'Meet Northwind, Squad Coach & the method', minutes: 25 },
+  { lesson: 'product', title: 'Shape the product', minutes: 55 },
+  { lesson: 'ado', title: 'Publish to Azure DevOps', minutes: 25, optional: true },
   { lesson: 'federation', title: 'Open the federation', minutes: 10 },
   { lesson: '', title: 'Break', minutes: 10 },
-  { lesson: 'migration', title: 'Azure: plan the migration', minutes: 60 },
-  { lesson: 'modernize', title: '.NET: modernize to .NET 10', minutes: 60 },
-  { lesson: 'powerplatform', title: 'Power Platform: design the claims solution', minutes: 60 },
+  { lesson: 'migration', title: 'Azure: plan the migration', minutes: 50 },
+  { lesson: 'modernize', title: '.NET: modernize to .NET 10', minutes: 55 },
+  { lesson: 'powerplatform', title: 'Power Platform: design the claims solution', minutes: 45 },
   { lesson: 'together', title: 'Bring it together', minutes: 20 },
-  { lesson: 'reflect', title: 'Reflect & next steps', minutes: 25 },
+  { lesson: 'connector', title: 'Extend with custom agents & Squad Connector', minutes: 30, optional: true },
+  { lesson: 'reflect', title: 'Reflect & next steps', minutes: 20 },
 ]
 
 export const lessons: Lesson[] = [
   {
     id: 'prepare', number: '00', title: 'Get ready', eyebrow: 'Before the session', minutes: 0,
-    goal: 'Arrive having read the core ideas, with a working folder, one Copilot client, HVE Squad installed and a strong model selected — so the session is spent learning, not installing.',
-    concept: 'Everything you need is listed once, in the table below, with the part that needs it. You only need the "everyone" rows to start. The rest belong to a track and can wait until the part that uses them. Before the numbered steps, take ten minutes to read the core ideas: the squad uses a few words from its first message.',
-    inputs: ['About 40 minutes, 10 of them reading the core ideas', 'Permission to install software on your machine', 'Your GitHub account with Copilot'],
+    timing: '10 min core ideas · 15–20 min starter, readiness & plugin · 10 min Squad Doctor & case check (+10 min if installing track tools now)',
+    goal: 'Arrive having read the core ideas, with a working folder, one Copilot client, HVE Squad installed from microsoft/hve-squad and verified by Squad Doctor, and a strong model selected — so the session is spent learning, not installing.',
+    concept: 'Everything you need is listed once, in the table below, with the part that needs it. You only need the "All parts" rows to start. The rest belong to a track and can wait until the part that uses them. Before the numbered steps, take ten minutes to read the core ideas: the squad uses a few words from its first message.',
+    inputs: ['About 35 to 45 minutes, 10 of them reading the core ideas', 'Permission to install software on your machine', 'Your GitHub account with Copilot'],
     steps: [
       { title: 'Get the starter solution', body: 'Use the button above. In Edge or Chrome you choose a folder on your computer and the guide writes a northwind-workshop folder into it. In other browsers you get a zip file: extract it wherever you like. Nothing is uploaded; the files come from this website.' },
       { title: 'Run the readiness check', body: 'Open a terminal inside the northwind-workshop folder and run the command for your system. It lists what is installed, flags what is missing for each part and track, and turns the folder into a Git repository with a first commit tagged "starter". It installs nothing and is safe to run again.', prompt: readyScript },
-      { title: 'Install HVE Squad in your client', body: 'Follow the panel below for the client selected at the top of the page. Install once, in the client you will actually use. One self-contained plugin bundles HVE Squad and its pinned [HVE Core](term:hve-core) agents and skills in the CLI, the App and VS Code; APM is only a repository-local VS Code fallback. Remove the retired two-plugin installation before migrating, and do not install a second HVE Core plugin. Start a fresh session, then confirm that Squad Coordinator and Squad Federation Coordinator both appear in your client\'s agent list: /agent in Copilot CLI, the agent list in the App, the agents dropdown in VS Code.' },
-      { title: 'Choose your model and routing', body: 'Select a balanced model at least as capable as Claude Sonnet 5.5 in your client now, and keep it for the whole workshop. Not Auto. Then choose the [model routing](term:routing) at the top of this page (Off, Ranked or Manual) — the guide adds it to every work request. Write both in your evidence log.' },
+      { title: 'Install HVE Squad in your client', body: `Follow the panel below for the client selected at the top of the page. Install once, in the client you will actually use. One self-contained plugin from ${pluginMarketplace} bundles HVE Squad and its pinned [HVE Core](term:hve-core) agents and skills in the CLI, the App and VS Code; APM is only a repository-local VS Code fallback or an opt-in installer for external pack skills. If you installed earlier from ${legacyRepoMarketplace} or the retired two-plugin hve-squad-plugin marketplace, remove that older marketplace entry first so updates come from ${pluginMarketplace}, and do not install a second HVE Core plugin.` },
+      { title: 'Verify the plugin with Squad Doctor', body: 'Start a fresh session in your client on the northwind-workshop folder, select [Squad Doctor](term:doctor) and send check. No squad initialization is needed: Squad Doctor deterministically checks runtime files and all six bundled HVE Core domains, and confirms that Squad Coordinator, Squad Federation Coordinator and Squad Coach are ready.', prompt: doctorCheck },
+      { title: 'Choose your model, routing and depth', body: 'Select a balanced model at least as capable as Claude Sonnet 5.5 in your client now, and keep it for the whole workshop. Not Auto. Then choose your [model routing](term:routing) (Off, Ranked, [Economy](term:economy) or Manual) and [work depth](term:depth) (Standard or Quick) at the top of this page — the guide adds both to every work request. Write them in your evidence log.' },
       { title: 'Check that Copilot can read the case', body: 'Open the northwind-workshop folder in your client. With no squad agent selected, ask the question below. Compare the answer with the documents: three business areas BA-01 to BA-03 owned by the Azure, .NET and Power Platform tracks, the deadline 30 June 2027 (C-01) and .NET Framework 4.8 (CS-01). If the answer is wrong or vague, tell the facilitator before the session.', prompt: readinessQuestion },
     ],
-    evidence: ['A northwind-workshop folder that is a Git repository with the tag "starter"', 'The readiness check output', 'The model name and client you will use'],
+    evidence: ['A northwind-workshop folder that is a Git repository with the tag "starter"', 'The readiness check output and a passing Squad Doctor check', 'The model name, client, routing and depth you will use'],
     checks: [
       'My northwind-workshop folder exists and the readiness check shows Git OK.',
-      `HVE Squad ${squadVersion} is installed in my client and both coordinators are visible.`,
-      'I selected a model at least as capable as Claude Sonnet 5.5 (not Auto) and chose a model routing.',
+      `HVE Squad ${squadVersion} (from ${pluginMarketplace}) is installed in my client and Squad Doctor passes check.`,
+      'I selected a model at least as capable as Claude Sonnet 5.5 (not Auto) and chose a model routing and work depth.',
       'Copilot read the case and correctly gave the business areas, the deadline (C-01) and the current .NET version (CS-01).',
       'I read the core ideas and can say in one sentence what init, promote, a profile and a pack are.',
     ],
     recovery: 'Tell the facilitator what is blocked before the session. A missing tool for a track or for Part 03 does not stop you from starting: those parts say exactly what they need.',
   },
   {
-    id: 'orient', number: '01', title: 'Meet Northwind & the method', eyebrow: 'Start with the outcome', minutes: 15,
-    goal: 'Understand the customer and its delivery tracks, and learn the difference between setting up a team and asking it for work.',
-    concept: 'One repository, one customer, one product team — and one team per delivery track you choose: Azure, .NET, Power Platform. The product team writes the documents and a backlog tagged by track and by release, with numbered releases for each track. At the start of Part 02 you choose what to build — all tracks, one track or a selection — and the tracks you do not choose stay hidden. After promotion to a federation, each track team builds only from its own releases, so the tracks are independent and can be done in any order. More tracks will be added over time.',
+    id: 'orient', number: '01', title: 'Meet Northwind, Squad Coach & the method', eyebrow: 'Re-imagine before you build', minutes: 25,
+    timing: '8 min case & core concepts · 12 min Squad Coach re-imagination · 5 min routing & depth setup',
+    goal: 'Understand the customer and its delivery tracks, use Squad Coach to re-imagine what is in the repository and map out profiles and packs, and set your model routing and work depth.',
+    concept: 'One repository, one customer, one product team — and one team per delivery track you choose: Azure, .NET, Power Platform. Before setting up any squad, you ask [Squad Coach](term:coach) to inspect what is already in the folder and help re-imagine Northwind\'s opportunities beyond a mechanical rewrite, including which profiles and new technology packs fit each track. You also choose the two independent controls carried on every work request: [model routing](term:routing) (which model runs each role) and [work depth](term:depth) (how much work runs on that turn).',
     inputs: ['Your northwind-workshop folder open in your client', 'knowledge-docs/business-case.md, section 4 (business areas and delivery tracks)'],
     steps: [
-      { title: 'Know the tracks before you choose', body: 'Section 4 of business-case.md lists the business areas and the track that delivers each one. You choose at the start of Part 02 — all tracks, one track or selected tracks — together with how much of the case the product documents cover. The tracks you do not choose are hidden from this guide; you can add one later.' },
-      { title: 'Read the case in five minutes', body: 'Northwind Traders, a food distributor in Lyon, has three business areas. BA-01: leave its data centre before the lease ends on 30 June 2027 (C-01). BA-02: a Customer Portal (BR-01 to BR-12) served by Order Desk, a .NET Framework 4.8 application. BA-03: a delivery-claims process that replaces a shared spreadsheet (BR-14 to BR-19). Every fact has an identifier. That is deliberate: you will use those identifiers to catch invented or missing requirements. The folder name knowledge-docs is this workshop\'s own choice: HVE Squad has no required folder layout, you simply name the files the team should read ([what the squad works from](term:inputs)).' },
-      { title: 'Know a team, a profile and a pack', body: 'A [team](term:team) is one roster of agents with one plan, one decision log and one history: the product team and each track team are separate teams, and together they form a [federation](term:federation). When you create a team the squad asks for its [profile](term:profile) — the kind of team, a ready-made cast of roles — and may list optional [packs](term:pack): technology specialists added on top of a profile. You meet these questions in Part 02, with what to answer.' },
-      { title: 'Follow the chain', body: 'Product [init](term:init) → product work (the intake validator checks the case first, then documents and the tagged releases of each track) → (optional) publish to Azure DevOps → [promote](term:promote) → for each track you chose: track init → track work → status across teams. Setup and work are always separate messages: init and promote set a team up and start no work, a [work request](term:work-request) does the work.' },
-      { title: 'Know the three kinds of message', body: 'Setup ([init](term:init), [promote](term:promote)): no autopilot, you confirm. Work: [autopilot](term:autopilot) plus your [model routing](term:routing), the squad runs the whole pipeline and stops for approvals. Questions: read-only, no mode. The guide labels every block, lists the terms it uses and adds the right form for your client.' },
-      { title: 'Optional: meet the Squad Coach', body: 'The [Squad Coach](term:coach) is a read-only guide: it explains HVE Squad in plain words, looks at your folder and tells you which message to send next. It cannot create a team, run work or change a file. It is meant for anyone who is not sure which profile, packs or message fits a goal. This workshop sends fixed messages on purpose, so everyone can compare results; you can skip the Coach and lose nothing. If you are curious, ask it the question below and compare its answer with this guide.', prompt: coachQuestion },
-      { title: 'Keep an honest evidence log', body: 'Download the evidence log from Resources. Record what the squad did without being asked, what needed your answer, and what was missing. The checkboxes in this guide are only your own record; they do not inspect your project.' },
+      { title: 'Read the case in five minutes', body: 'Northwind Traders, a B2B food distributor in Lyon with a second warehouse in Antwerp, has three business areas. BA-01: leave its data centre before the lease ends on 30 June 2027 (C-01). BA-02: a Customer Portal (BR-01 to BR-12) served by Order Desk, a .NET Framework 4.8 application. BA-03: a delivery-claims process that replaces a shared spreadsheet (BR-14 to BR-19). Every fact has an identifier so you can spot invented or missing requirements immediately. The folder name knowledge-docs is this workshop\'s own choice: HVE Squad has no required folder layout ([what the squad works from](term:inputs)).' },
+      { title: 'Re-imagine what is there with Squad Coach', body: 'Select [Squad Coach](term:coach) in your client and send the request below. Squad Coach is a read-only advisor: it inspects your installed HVE Squad package together with knowledge-docs/, src/ and database/ and never creates or edits files. Watch how it surfaces high-value product, architecture and automation angles (self-service reorder, hourly StockPilot integration, independent release slices), maps out which [profiles](term:profile) and new [packs](term:pack) ([azure-cloud](term:azure-cloud-pack), [dotnet](term:dotnet-pack), [power-platform](term:power-platform-pack)) fit each track, and builds an ordered runbook. Compare its ideas with this guide and note them in your evidence log.', prompt: coachQuestion },
+      { title: 'Know a team, a profile and the new packs', body: 'A [team](term:team) is one roster of agents with one plan, one decision log and one history; together in one repository, independent teams form a [federation](term:federation). A [profile](term:profile) sets the kind of work (product, azure, modernization, default…), while an optional [pack](term:pack) layers platform guidance and pinned official skills or specialists on top (azure-cloud, dotnet, power-platform, aks, azure-functions, foundry, fabric, m365-copilot, aws).' },
+      { title: 'Choose your model routing and work depth', body: 'Setup ([init](term:init), [promote](term:promote)): no autopilot, you confirm. Work: [autopilot](term:autopilot) plus your [model routing](term:routing) (Off, Ranked, [Economy](term:economy), Manual) and [work depth](term:depth) (Standard or Quick). Questions and builders: read-only or interactive, no autopilot. Review both panels above: routing chooses models and persists in team.md, while depth tunes per-turn work volume without ever skipping a gate.' },
+      { title: 'Follow the chain and start your evidence log', body: 'Product [init](term:init) → product work (intake validator first, then documents and tagged releases per track) → (optional) publish to Azure DevOps → [promote](term:promote) → for each chosen track: track init + pack → track work → status across teams → (optional) custom agents & [Squad Connector](term:connector). Download the evidence log from Resources and record what happens on its own.' },
     ],
-    evidence: ['The evidence log, started, with your client and model'],
-    checks: ['I can name the product team, the three tracks and what each produces.', 'I know which messages use autopilot and which do not.'],
+    evidence: ['The re-imagined ideas, profiles and packs Squad Coach proposed', 'The evidence log, started, with your client, model, routing and depth'],
+    checks: [
+      'I prompted Squad Coach to re-imagine Northwind and noted the profiles and packs it recommended.',
+      'I can name the product team, the three tracks, and the difference between routing (which model) and depth (how much work).',
+      'I know which messages use autopilot and which do not.',
+    ],
     recovery: 'If your client opened a different folder, switch to northwind-workshop before continuing. The squads only see the folder that is open.',
   },
   {
-    id: 'product', number: '02', title: 'Shape the product', eyebrow: 'From business case to tagged releases', minutes: 60,
+    id: 'product', number: '02', title: 'Shape the product', eyebrow: 'From business case to tagged releases', minutes: 55, quickMinutes: 40,
+    timing: '5 min team init · 25–35 min intake Q&A & autopilot (15–20 min with depth="quick" or focused scope) · 15 min 5-point review & Git tags',
     goal: 'Choose what you build, then turn the business case into reviewed requirements, experiments and a backlog tagged by track and by release — with numbered releases for each chosen track and every statement traceable to its source.',
     concept: 'First choose what you build in the panel below: all tracks, one track or selected tracks, and how much of the case the documents cover. The tracks you do not choose are hidden from the rest of this guide. Then you set up one planning team and send a single work request. The team\'s intake validator checks the case for gaps and contradictions on its own before anything is drafted, and asks you when it needs a business decision. The request names your tracks and your scope[[full: (the whole case)]][[focused: ({areaList} only)]]. Every backlog item gets the tag of the track that delivers it and, once planned, the tag of its release. A track can have several releases (r1, r2…), each marked with a Git tag, so wherever the backlog is later published — Azure DevOps, GitHub or Jira — you can tell which items belong to which release. Your job is to answer as the customer, check that nothing was quietly invented, and approve the releases.',
     inputs: ['knowledge-docs (business case, current state, engineering standards — ES-30, ES-31 and ES-39 define tags and releases)', 'Your choice of tracks and scope, in the panel below', 'The business answers on this page — you play Northwind when the squad asks'],
@@ -394,13 +313,14 @@ export const lessons: Lesson[] = [
       title: '1. Set up the planning team',
       description: 'Select Squad Coordinator (the line above the message says how, in your client). Send the message: it starts with [init](term:init), which creates one [team](term:team) and nothing else. The coordinator asks a few questions, proposes the team and waits for your confirmation; the table below the message says what to answer.',
       request: {
+        promptId: 'product-init',
         title: 'Set up a team for the planning work', kind: 'setup', entry: 'squad', lifecycle: 'init',
         text: "init\n\nUse the documents in knowledge-docs at the root of this repository as context: business-case.md, current-state.md and engineering-standards.md. We need to understand Northwind's needs[[full: across the whole business case]][[focused: in the business areas {areaList}]], define business and product requirements, test the riskiest assumptions and prepare a backlog with tagged releases for each delivery track ({trackList}) before any development starts. Set up a single team for this planning work. Stop once the team is ready; I will send the work request next.",
       },
       questions: [
         { ask: 'One team or a federation?', answer: 'One team (a single squad). You turn it into a federation in Part 04, when the track teams arrive.', terms: ['team', 'federation'] },
         { ask: 'Which profile?', answer: 'Accept the one it proposes: product, the profile for business requirements and backlog work. A profile is the kind of team you create, so choosing one chooses its cast of roles. If a name does not tell you enough, ask the coordinator what it contains instead of guessing.', terms: ['profile', 'profile-table'] },
-        { ask: 'Which packs?', answer: 'None. A pack adds specialists for a technology your project is built on, and none fits this planning work. The list may show every pack the squad knows — Foundry, AWS, Microsoft 365 Copilot — because it is a menu, not a recommendation. Choosing no pack is a normal answer.', terms: ['pack'] },
+        { ask: 'Which packs?', answer: 'None. A pack adds specialists or official skills for a platform your team builds on, and none is needed for cross-track product discovery. The list may show every pack the squad knows — azure-cloud, dotnet, power-platform, aks, azure-functions, foundry, fabric, m365-copilot, aws — because it is a menu, not a recommendation. You will pick platform packs in Parts 05–07.', terms: ['pack'] },
         { ask: 'Names for the agents?', answer: 'Skip. Keep the default role names.' },
         { ask: 'How should approvals reach you?', answer: 'In the chat, which is the default.' },
         { ask: 'Do you confirm the proposed team?', answer: 'Read the roster it shows, then confirm. Nothing is written before you do.' },
@@ -415,8 +335,9 @@ export const lessons: Lesson[] = [
     flow: [
       {
         heading: '2. Ask for the product documents and the releases',
-        hint: 'Still with Squad Coordinator. Unlike init, a [work request](term:work-request) starts the real work. This one uses mode="autopilot" ([autopilot](term:autopilot)) and is built from your tracks and scope: the squad assesses the case itself — its intake validator looks for gaps and contradictions before anything is drafted — then plans, writes and reviews the documents and proposes the releases of each track. If it asks you something, answer as Northwind using the panel below. It should ask for your approval before it commits and tags the releases.',
+        hint: 'Still with Squad Coordinator. Unlike init, a [work request](term:work-request) starts the real work. This one uses mode="autopilot" ([autopilot](term:autopilot)), your [model routing](term:routing) and your [work depth](term:depth), and is built from your tracks and scope: the squad assesses the case itself — its intake validator looks for gaps and contradictions before anything is drafted — then plans, writes and reviews the documents and proposes the releases of each track. If it asks you something, answer as Northwind using the panel below. It should ask for your approval before it commits and tags the releases.',
         prompt: {
+          promptId: 'product-work',
           title: 'Prepare the product documents and the releases of each track', kind: 'work', entry: 'squad', requiresSetup: ['product-team'],
           text: "Using knowledge-docs at the root of this repository, turn Northwind's business case into documents my teams can review and build from. We deliver through these tracks, each run by its own team that builds only from its own releases: {trackList}.[[full: Cover the whole business case, every business area (BA-) included, so another track can be added later.]][[focused: Cover only the business areas of those tracks — {areaList} — and list the other areas as out of scope.]]\n1. A business requirements document.\n2. A product requirements document covering the planned releases.\n3. A Minimum Viable Experiment for each business area in scope, testing its riskiest assumption before we commit to building.\n4. A prioritized backlog of epics, features and user stories with acceptance criteria, including the enabler work a track needs before its features. Tag every item with the track that delivers it (ES-30).\n5. The releases of each track, in docs/product/releases (ES-31). A track can have several releases, numbered r1, r2… in delivery order: propose how many each track needs from the backlog priorities. Every item planned in a release carries that release's tag as well as its track tag, so the releases stay identifiable wherever the backlog is published — Azure DevOps, GitHub or Jira (ES-39):{releaseList}\nFollow engineering-standards.md for the writing style, the file locations and traceability: cite the source identifier for every requirement and story, label assumptions and open questions, and include the traceability table. Record dependencies between tracks as OPEN items; no release waits for another. When I approve the releases, commit the product documents and create the Git tag of each approved release. I want documents to review, not an implementation.",
         },
@@ -468,7 +389,8 @@ export const lessons: Lesson[] = [
     recovery: 'If the documents are not finished after 45 minutes, ask the squad to finish the backlog, the release files and the traceability table first: the track teams build from the releases. Never copy documents from another participant to catch up — note the gap instead.',
   },
   {
-    id: 'ado', number: '03', title: 'Publish to Azure DevOps', eyebrow: 'Optional · team visibility', minutes: 20, optional: true,
+    id: 'ado', number: '03', title: 'Publish to Azure DevOps', eyebrow: 'Optional · team visibility', minutes: 25, quickMinutes: 20, optional: true,
+    timing: '10 min remote MCP sign-in · 10 min preview & approved publish · 5 min browser check',
     goal: 'Put the approved releases and documents in Azure DevOps, tagged by track and by release, with your approval before anything is created.',
     concept: 'This part is optional. Nothing later depends on it: each track team reads its release from docs/product/releases. Do it if your facilitator prepared an Azure DevOps project; skip it otherwise. The track and release tags are what make the releases identifiable after publishing; the same tags become labels and milestones in GitHub, or labels and fix versions in Jira (ES-39).',
     inputs: ['Your approved releases in docs/product/releases', 'Organization, project and your participant prefix from the facilitator', 'The Azure DevOps MCP server configured in your client (below)'],
@@ -476,6 +398,7 @@ export const lessons: Lesson[] = [
       heading: 'Publish the approved releases',
       hint: 'Fill in Session setup first (top right): the guide adds your project details to the request. Stay with Squad Coordinator — the product team is still a single squad at this point.',
       prompt: {
+        promptId: 'ado-publish',
         title: 'Make the releases available to the teams', kind: 'work', entry: 'squad', requiresSetup: ['product-team'], requiresChecks: ['product-3'], publication: true,
         text: 'We are happy with the reviewed plan. Publish the approved releases to our Azure DevOps project as epics, features and user stories with their acceptance criteria, keeping the source identifiers in each description (ES-29). Store the business requirements, product requirements and experiment designs at the agreed documentation location and link them to the relevant work items. Tag every work item nw-workshop, its track tag (ES-30) and, if it is planned in a release, its release tag such as azure-r1 (ES-31, ES-39), and start every title with my participant prefix (ES-28). Show me the exact changes and wait for my approval before creating anything.',
       },
@@ -496,6 +419,7 @@ export const lessons: Lesson[] = [
   },
   {
     id: 'federation', number: '04', title: 'Open the federation', eyebrow: 'Single squad → federation', minutes: 10,
+    timing: '5 min promote & confirmation · 5 min federation.md & release-tag check',
     goal: 'Keep the product team and everything it produced, and make room for one team per delivery track you chose.',
     concept: '[Promotion](term:promote) turns your single squad into the first member of a [federation](term:federation), keeping its decisions and history. Each track team you add next is a separate member with its own roster, decisions and history, and builds only from its own releases — so the track parts that follow can be done in any order, and any of them can be skipped.',
     inputs: ['Your approved releases in docs/product/releases and their product/* Git tags'],
@@ -504,6 +428,7 @@ export const lessons: Lesson[] = [
       title: '1. Promote the product team',
       description: 'Switch to Squad Federation Coordinator (the line above the message says how, in your client). Send the message: it starts with [promote](term:promote), which moves your existing team into a federation and does nothing else. Read what will move and confirm.',
       request: {
+        promptId: 'promote-federation',
         title: 'Keep the product team, make room for the track teams', kind: 'setup', entry: 'squad-federation', lifecycle: 'promote', requiresSetup: ['product-team'], requiresChecks: ['product-3'],
         text: 'promote\n\nWe want to keep this planning team and everything it produced while making room for one team per delivery track ({trackList}) on the same repository. Prepare that transition and name the existing team "{productSquad}". Show me what will change before you move anything. Stop once the existing team is preserved; do not add another team or start new work.',
       },
@@ -521,33 +446,35 @@ export const lessons: Lesson[] = [
     }],
     steps: [
       { title: 'Check what moved', body: 'Open .copilot-tracking/squad/. The product team now sits under members/ with its decisions and history, and federation.md lists it with its profile. docs/ and knowledge-docs did not move.' },
-      { title: 'Check the releases did not change', body: 'Promotion moves squad state, never your documents or release tags. The release tags must still point at the commits you approved.', prompt: { title: 'Check the release tags and the documents', kind: 'shell', text: 'git tag -l "product/*"\ngit status --short docs' } },
+      { title: 'Check the releases did not change', body: 'Promotion moves squad state, never your documents or release tags. The release tags must still point at the commits you approved.', prompt: { promptId: 'federation-check-tags', title: 'Check the release tags and the documents', kind: 'shell', text: 'git tag -l "product/*"\ngit status --short docs' } },
     ],
     evidence: ['The promotion summary', 'federation.md listing the product team'],
     checks: ['The product team is the first member of the federation, with its decisions and history moved, not recreated.', 'docs/product and the product/* tags are unchanged.'],
     recovery: 'If the coordinator offers to add a team or start work, decline: promotion only preserves the existing team. If promotion stops half-way, never initialize a new federation over it; ask the federation coordinator for the status and record what happened.',
   },
   {
-    id: 'migration', number: '05', track: 'azure', title: 'Plan the Azure migration', eyebrow: 'Azure track · BA-01', minutes: 60,
-    goal: 'Add an Azure team that builds from the Azure release and produces an evidence-based plan to move Order Desk to Azure — without deploying anything.',
-    concept: 'The Azure team builds only from its own releases and does not wait for any other track. It reads the code and scripts, not just the documents: the blockers are in the files. Its application-change list is useful to whoever modernizes Order Desk[[dotnet:, and the .NET team can align with it if it exists — it never waits for it]].',
-    inputs: ['The first Azure release: docs/product/releases/azure-r1.md (Git tag product/azure-r1). Later releases (r2, r3…) are built the same way', 'knowledge-docs/current-state.md and the code in src/ and database/', 'Azure CLI with Bicep (recommended, for checking the infrastructure code)', `uv and Graphviz, so the diagrams render with the latest Azure icons (Python diagrams library ${diagramsVersion} or later)`],
+    id: 'migration', number: '05', track: 'azure', title: 'Plan the Azure migration', eyebrow: 'Azure track · BA-01', minutes: 50, quickMinutes: 35,
+    timing: '5–8 min team init & azure-cloud pack · 25–30 min autopilot (15–20 min with depth="quick") · 15 min blocker score, diagrams & Bicep build',
+    goal: 'Add an Azure team equipped with the azure-cloud pack that builds from the Azure release and produces an evidence-based plan to move Order Desk to Azure — without deploying anything.',
+    concept: 'The Azure team builds only from its own releases and does not wait for any other track. It reads the code and scripts, not just the documents, and benefits from the [azure-cloud pack](term:azure-cloud-pack), which equips its Azure architect, cost manager, modernizer and diagnostics roles with official FinOps, PaaS reliability, compliance and cloud-migration guidance and skills[[dotnet:. Its application-change list is useful to whoever modernizes Order Desk, and the .NET team can align with it if it exists — it never waits for it]].',
+    inputs: ['The first Azure release: docs/product/releases/azure-r1.md (Git tag product/azure-r1). Later releases (r2, r3…) are built the same way', 'knowledge-docs/current-state.md and the code in src/ and database/', 'Azure CLI with Bicep (recommended, for checking the infrastructure code)', `uv and Graphviz, so the diagrams render with the latest Azure icons (Python diagrams library ${diagramsVersion} or later)`, `APM CLI ${apmCliVersion} (optional) if you consent to installing the azure-cloud pack's official external skills`],
     setup: [
       {
         id: 'migration-team',
-        title: '1. Add the Azure team',
-        description: 'Use the federation coordinator. This is another [init](term:init), this time inside the [federation](term:federation): it adds one team and starts no work. Send the message, review the proposed team and confirm. If the squad registers a different name, update it in Session setup.',
+        title: '1. Add the Azure team (with the azure-cloud pack)',
+        description: 'Use the federation coordinator. This is another [init](term:init), inside the [federation](term:federation): it adds one team and starts no work. Accept the proposed Azure [profile](term:profile) together with the [azure-cloud pack](term:azure-cloud-pack): if you have APM 0.29.0 installed, approve its core official skills (decline the azure-local-multi-rack preview skill); if you do not have APM, decline external skill installation and the bundled Azure roles will still complete the entire plan.',
         request: {
+          promptId: 'azure-init',
           title: 'Add a team for the Azure migration', kind: 'setup', entry: 'squad-federation', lifecycle: 'init', requiresSetup: ['promote'],
-          text: 'init\n\nAdd a new team named "{migrationSquad}" to this federation. Its job: plan moving Order Desk and its database from Northwind\'s Lyon data centre to Azure — target architecture, infrastructure as code, cost and the migration plan — from the Azure releases the product team tagged product/azure-r1, product/azure-r2 and so on, starting with product/azure-r1. Use as context knowledge-docs (especially current-state.md, business area BA-01 and the constraints in business-case.md, and the Azure standards in engineering-standards.md), the code in src/, the scripts in database/ and docs/product. Keep the "{productSquad}" team\'s work and responsibilities separate. Set up this team only; I will send the work request next.',
+          text: 'init\n\nAdd a new team named "{migrationSquad}" to this federation. Its job: plan moving Order Desk and its database from Northwind\'s Lyon data centre to Azure — FinOps cost estimation, PaaS reliability, compliance, target architecture, infrastructure as code and the migration plan — from the Azure releases the product team tagged product/azure-r1, product/azure-r2 and so on, starting with product/azure-r1. Use as context knowledge-docs (especially current-state.md, business area BA-01 and the constraints in business-case.md, and the Azure standards in engineering-standards.md), the code in src/, the scripts in database/ and docs/product. Keep the "{productSquad}" team\'s work and responsibilities separate. Set up this team only; I will send the work request next.',
         },
         questions: [
-          { ask: 'Which profile?', answer: 'Accept the Azure-oriented profile it proposes, most likely azure. It already carries the Azure specialists: Azure architect, infrastructure-as-code author and cost manager.', terms: ['profile', 'profile-table'] },
-          { ask: 'Which packs?', answer: 'None. Azure is a profile here, not a pack: the packs (Power Platform, Microsoft 365 Copilot, AWS, Foundry) are for other technologies. Choosing no pack is a normal answer.', terms: ['pack'] },
-          { ask: 'Do you confirm the proposed team?', answer: 'Read the roster it shows, then confirm. Naming and approval choices are inherited from the federation, so they are usually not asked again.' },
+          { ask: 'Which profile?', answer: 'Accept the Azure-oriented profile it proposes, most likely azure: it carries the Azure architect, infrastructure-as-code author, cost manager, security, modernizer and diagnostics roles.', terms: ['profile', 'profile-table'] },
+          { ask: 'Which packs?', answer: 'Yes to azure-cloud: it layers azure-cloud-platform-options.md guidance onto your Azure roles and offers 14 SHA-pinned official skills from microsoft/azure-skills (cost estimation/optimization, compliance, PaaS reliability, regional quotas, cloud migration). With APM 0.29.0, approve the core skills and decline the azure-local-multi-rack preview; without APM, decline external skill installation and keep the bundled roles. Skip aks (C-06 and ES-21 rule out Kubernetes) and azure-functions unless you explicitly choose one.', terms: ['pack', 'azure-cloud-pack'] },
+          { ask: 'Do you confirm the proposed team?', answer: 'Read the roster (for example "azure +azure-cloud"), then confirm; reload your client if new skills were just installed.' },
         ],
         expected: [
-          'An Azure-oriented profile is proposed from the purpose of the work, without you naming it.',
+          'An Azure-oriented profile is proposed together with the azure-cloud pack, keeping core official skills distinct from preview options.',
           'The new team is registered next to the product team with separate responsibilities.',
           'No architecture or code is produced yet.',
         ],
@@ -556,8 +483,9 @@ export const lessons: Lesson[] = [
     ],
     flow: [{
       heading: '2. Ask for the migration plan',
-      hint: 'The guide adds squad="…" so the request goes to the Azure team, plus mode="autopilot" and your model routing. Expect this to take 20 to 35 minutes; review the product of each stage as it appears.',
+      hint: 'The guide adds squad="…" so the request goes to the Azure team, plus mode="autopilot", your model routing and your work depth. Expect 25 to 30 minutes at standard depth, or 15 to 20 minutes with depth="quick".',
       prompt: {
+        promptId: 'azure-work',
         title: 'Plan the move to Azure', kind: 'work', entry: 'squad-federation', requiresSetup: ['migration-team'], squadTarget: 'migrationSquad',
         text: `Plan the move of Order Desk and its database to Azure before the data-centre lease ends (C-01), for the release tagged product/azure-r1 (docs/product/releases/azure-r1.md). Use knowledge-docs, the code in src/ and the scripts in database/. I need:\n1. An assessment of everything that blocks running Order Desk on Azure platform services, with evidence (file and line) from the code and scripts.\n2. A target architecture: high-level and low-level design with decision records, including how Order Desk keeps exchanging data with StockPilot, which stays on premises (C-03), often enough to meet BR-04.\n3. Architecture diagrams for the high-level and the low-level design, drawn with the python-diagrams skill: Python generator scripts that use the diagrams library (${diagramsRequirement}, which carries the latest Azure icons) and only its diagrams.azure nodes for Azure services, rendered with Graphviz to PNG and SVG files committed in docs/architecture next to their scripts (ES-38). Run them with uv run --with "${diagramsRequirement}". Do not replace them with Mermaid; if uv, the library or Graphviz is missing, stop and tell me what to install.\n4. Bicep for a test and a production environment under infra/, following engineering-standards.md, validated locally with az bicep build but not deployed.\n5. A monthly cost estimate for both environments compared with the budget in C-04.\n6. A phased migration plan with data migration, cut-over and rollback steps that meets NFR-06 and BR-13.\n7. A numbered list of the application changes Order Desk needs to run on the chosen platform, for whichever team modernizes it.\nFollow engineering-standards.md. Record dependencies on other tracks as OPEN items; do not wait for them. Do not deploy, sign in to Azure or create any resource.`,
       },
@@ -590,12 +518,14 @@ export const lessons: Lesson[] = [
     steps: [
       { title: 'Score the assessment', body: 'Use the review key. Record how many blockers were found unprompted and whether each cites a file. Ask the squad about any that are missing, and note that you had to.' },
       { title: 'Render the diagrams yourself', body: `Run the command below. Every generator script in docs/architecture should render again on your machine, with the latest Azure icons (diagrams ${diagramsVersion} or later). Open the PNG or SVG: does each Azure service show its official icon, and does the LLD show the private endpoints (ES-25) and the StockPilot link?`, prompt: {
+        promptId: 'azure-diagrams',
         title: 'Re-render every architecture diagram', kind: 'shell',
         text: `Get-ChildItem docs/architecture -Recurse -Filter *.py | Where-Object Name -ne 'diagram_io.py' | ForEach-Object { Push-Location $_.DirectoryName; uv run --quiet --with "${diagramsRequirement}" python $_.Name; $code = $LASTEXITCODE; Pop-Location; "{0}  {1}" -f ($(if ($code -eq 0) { "OK  " } else { "FAIL" })), $_.FullName }`,
         bash: `find docs/architecture -name "*.py" ! -name diagram_io.py | while read -r f; do (cd "$(dirname "$f")" && uv run --quiet --with "${diagramsRequirement}" python "$(basename "$f")") && echo "OK    $f" || echo "FAIL  $f"; done`,
       } },
       { title: 'Read the decisions, not just the diagrams', body: 'Open docs/architecture. For the database and the StockPilot exchange, is there a decision record that names the options, the choice and the reason? Does the design stay within C-04 and C-06 (no Kubernetes)?' },
       { title: 'Validate the infrastructure code yourself', body: 'Run the command below in your terminal. Every Bicep file should build without errors. Check one file for the naming (ES-23), tags (ES-24) and private endpoints (ES-25).', prompt: {
+        promptId: 'azure-bicep',
         title: 'Build every Bicep file locally', kind: 'shell',
         text: 'Get-ChildItem infra -Recurse -Filter *.bicep | ForEach-Object { az bicep build --file $_.FullName --stdout | Out-Null; "{0}  {1}" -f ($(if ($LASTEXITCODE -eq 0) { "OK  " } else { "FAIL" })), $_.FullName }',
         bash: 'find infra -name "*.bicep" | while read -r f; do az bicep build --file "$f" --stdout >/dev/null && echo "OK    $f" || echo "FAIL  $f"; done',
@@ -614,34 +544,37 @@ export const lessons: Lesson[] = [
     recovery: 'If the run is still going after 40 minutes, let it finish the assessment and the change list first. If the diagrams do not render, check dot -V and uv --version, then see "The architecture diagrams do not render" in Resources. Do not accept Mermaid instead: record the problem and ask the squad to re-run the generators once the tools work.',
   },
   {
-    id: 'modernize', number: '06', track: 'dotnet', title: 'Modernize to .NET 10', eyebrow: '.NET track · BA-02', minutes: 60,
-    goal: 'Add a .NET team that delivers the enabler of the .NET release: upgrade Order Desk in place from .NET Framework 4.8 to .NET 10 — with every pricing test still passing.',
-    concept: 'The .NET team builds only from its own releases and does not wait for any other track. It finds the blockers itself[[azure:; if the Azure team has already produced its application-change list, it follows the approaches chosen there]]. Success is measurable: the solution builds and its tests pass with the .NET CLI on any operating system, the pricing assertions are unchanged, and the solution still has three projects.',
-    inputs: ['The first .NET release: docs/product/releases/dotnet-r1.md (Git tag product/dotnet-r1). Later releases (r2, r3…) are built the same way', 'The solution in src/ (28 tests today, Windows and Visual Studio only)', '.NET 10 SDK', '[[azure:Optional: the Azure team\'s architecture and application-change list, if they exist]]'],
+    id: 'modernize', number: '06', track: 'dotnet', title: 'Modernize to .NET 10', eyebrow: '.NET track · BA-02', minutes: 55, quickMinutes: 40,
+    timing: '5–8 min team init & dotnet pack · 30–35 min autopilot & risk gate (20 min with depth="quick") · 15 min dotnet build/test & pricing diff',
+    goal: 'Add a .NET team equipped with the dotnet pack that delivers the enabler of the .NET release: upgrade Order Desk in place from .NET Framework 4.8 to .NET 10 — with every pricing test still passing.',
+    concept: 'The .NET team builds only from its own releases and does not wait for any other track. It finds the blockers itself and now benefits from the [dotnet pack](term:dotnet-pack), which equips its modernizer, developer, tester and performance roles with 20 pinned official dotnet/skills entries across SDK upgrades, MSBuild modernization, VSTest migration and breaking-change review[[azure:; if the Azure team has already produced its application-change list, it follows the approaches chosen there]]. Success is measurable: the solution builds and its tests pass with the .NET CLI on any operating system, the pricing assertions are unchanged, and the solution still has three projects.',
+    inputs: ['The first .NET release: docs/product/releases/dotnet-r1.md (Git tag product/dotnet-r1). Later releases (r2, r3…) are built the same way', 'The solution in src/ (28 tests today, Windows and Visual Studio only)', '.NET 10 SDK', `APM CLI ${apmCliVersion} (optional) if you consent to installing the dotnet pack's official external skills`, '[[azure:Optional: the Azure team\'s architecture and application-change list, if they exist]]'],
     setup: [{
       id: 'modernization-team',
-      title: '1. Add the .NET team',
-      description: 'Use the federation coordinator. This is another [init](term:init), inside the [federation](term:federation): it adds one team and starts no work. Send the message, review the proposed team and confirm. Update the name in Session setup if the squad registers a different one.',
+      title: '1. Add the .NET team (with the dotnet pack)',
+      description: 'Use the federation coordinator. This is another [init](term:init), inside the [federation](term:federation): it adds one team and starts no work. Accept the modernization [profile](term:profile) together with the [dotnet pack](term:dotnet-pack): with APM 0.29.0, approve the core .NET 10 official skills (decline the .NET 11 and experimental mock-usage preview jobs); without APM, decline external skill installation and the bundled modernization roles will still complete the upgrade.',
       request: {
+        promptId: 'dotnet-init',
         title: 'Add a team for the .NET modernization', kind: 'setup', entry: 'squad-federation', lifecycle: 'init', requiresSetup: ['promote'],
-        text: 'init\n\nAdd a new team named "{modernizationSquad}" to this federation. Its job: modernize the Order Desk application in src/ from .NET Framework 4.8 to .NET 10, as the enabler of the .NET releases the product team tagged product/dotnet-r1, product/dotnet-r2 and so on, starting with product/dotnet-r1, so it can serve the Customer Portal and run on Azure platform services. Use as context knowledge-docs (especially engineering-standards.md), the solution in src/ and docs/product[[azure:, and, if they exist, the architecture and application-change list of the "{migrationSquad}" team]]. Keep the other teams\' work and responsibilities separate. Set up this team only; I will send the work request next.',
+        text: 'init\n\nAdd a new team named "{modernizationSquad}" to this federation. Its job: modernize the Order Desk application in src/ from .NET Framework 4.8 to .NET 10 (SDK-style MSBuild projects, test-runner migration and ASP.NET Core MVC), as the enabler of the .NET releases the product team tagged product/dotnet-r1, product/dotnet-r2 and so on, starting with product/dotnet-r1, so it can serve the Customer Portal and run on Azure platform services. Use as context knowledge-docs (especially engineering-standards.md), the solution in src/ and docs/product[[azure:, and, if they exist, the architecture and application-change list of the "{migrationSquad}" team]]. Keep the other teams\' work and responsibilities separate. Set up this team only; I will send the work request next.',
       },
       questions: [
         { ask: 'Which profile?', answer: 'Accept the modernization-oriented profile it proposes, most likely modernization: the core team plus a modernizer, architects, an infrastructure-as-code author and a cost manager.', terms: ['profile', 'profile-table'] },
-        { ask: 'Which packs?', answer: 'None. No pack covers .NET modernization, and the packs it may list (Power Platform, Microsoft 365 Copilot, AWS, Foundry) are for other technologies. Choosing no pack is a normal answer.', terms: ['pack'] },
-        { ask: 'Do you confirm the proposed team?', answer: 'Read the roster it shows, then confirm. Naming and approval choices are inherited from the federation, so they are usually not asked again.' },
+        { ask: 'Which packs?', answer: 'Yes to dotnet: it activates dotnet-platform-options.md guidance and offers 20 pinned official dotnet/skills entries (migrate-dotnet8-to-dotnet9, migrate-dotnet9-to-dotnet10, msbuild-modernization, migrate-vstest-to-mtp, dotnet-breaking-changes…). With APM 0.29.0, approve the core skills and decline the preview jobs (migrate-dotnet10-to-dotnet11 and exp-mock-usage-analysis, since ES-14 targets .NET 10 LTS). Without APM, decline external skill installation and keep the bundled roles. Skip packs for other platforms.', terms: ['pack', 'dotnet-pack'] },
+        { ask: 'Do you confirm the proposed team?', answer: 'Read the roster (for example "modernization +dotnet"), then confirm; reload your client if new skills were just installed.' },
       ],
       expected: [
-        'A modernization-oriented profile is proposed without you naming it.',
-        'The team is registered as a new member of the federation.',
-        'No code is changed yet.',
+        'A modernization-oriented profile and the dotnet pack are proposed from the purpose of the work.',
+        'The two preview jobs (.NET 11 migration and experimental mock analysis) stay separately gated and off unless explicitly approved.',
+        'The team is registered as a new member of the federation and no code is changed yet.',
       ],
       checkpoint: 'The .NET team is set up inside the federation.',
     }],
     flow: [{
       heading: '2. Ask for the upgrade',
-      hint: 'The guide targets the .NET team and adds mode="autopilot" and your model routing. With Manual routing this new team asks for its own models first. The squad may stop at a risk gate and ask you to approve with conditions — read the conditions before you answer.',
+      hint: 'The guide targets the .NET team and adds mode="autopilot", your model routing and your work depth. Expect 30 to 35 minutes at standard depth, or around 20 minutes with depth="quick". With Manual routing this new team asks for its own models first. The squad may stop at a risk gate and ask you to approve with conditions — read the conditions before you answer.',
       prompt: {
+        promptId: 'dotnet-work',
         title: 'Modernize Order Desk in place', kind: 'work', entry: 'squad-federation', requiresSetup: ['modernization-team'], squadTarget: 'modernizationSquad',
         text: 'Modernize Order Desk in place from .NET Framework 4.8 to .NET 10, as the enabler of the release tagged product/dotnet-r1 (docs/product/releases/dotnet-r1.md), following engineering-standards.md:\n1. Keep one solution with the existing Core, Web and Tests projects (ES-13), converted to SDK-style projects targeting net10.0.\n2. Move the web application from ASP.NET MVC 5 to ASP.NET Core MVC with the same pages and behaviour.\n3. Make it ready for Azure platform services (ES-21): identify what blocks it — configuration, logging, data access, session state, invoice storage, authentication and e-mail — and choose approaches that follow engineering-standards.md, recorded as decision records.[[azure: If the "{migrationSquad}" team has already listed application changes, use the approaches its design selected; do not wait for it.]]\n4. Keep the pricing behaviour and every existing test assertion (CS-20, ES-18). Tests may move to a current test framework; their expected values must not change.\n5. Finish when dotnet build and dotnet test succeed for src/Northwind.OrderDesk.sln on any operating system. If time is short, finish Core and Tests first, then the Web project.\n6. Record what changed, why, how it was verified and which release stories it enables in docs/modernization.\nRecord dependencies on other tracks as OPEN items. Do not deploy.',
       },
@@ -654,14 +587,17 @@ export const lessons: Lesson[] = [
     ],
     steps: [
       { title: 'Prove it builds and the tests pass', body: 'Run both commands yourself. Expect at least 28 tests, all passing — the same number as the legacy suite, or more.', prompt: {
+        promptId: 'dotnet-build',
         title: 'Build and test with the .NET CLI', kind: 'shell',
         text: 'dotnet build src/Northwind.OrderDesk.sln\ndotnet test src/Northwind.OrderDesk.sln',
       } },
       { title: 'Prove the pricing did not change', body: 'Compare the tests with the starter. Framework attributes and using lines may change; the numbers inside Assert calls must not. Any changed expected value is a finding to raise with the squad.', prompt: {
+        promptId: 'dotnet-diff',
         title: 'Compare the tests with the starter', kind: 'shell',
         text: 'git diff starter --stat -- src/Northwind.OrderDesk.Tests\ngit diff starter -- src/Northwind.OrderDesk.Tests/PricingServiceTests.cs',
       } },
       { title: 'Check the structure', body: 'The solution should still list three projects. Anything more needs a decision record (ES-13).', prompt: {
+        promptId: 'dotnet-sln',
         title: 'List the projects in the solution', kind: 'shell',
         text: 'dotnet sln src/Northwind.OrderDesk.sln list',
       } },
@@ -677,21 +613,23 @@ export const lessons: Lesson[] = [
     recovery: 'If the Web project is not finished, that is acceptable: Core and Tests on .NET 10 with green tests is a valid first slice. Record what remains. Do not accept a summary that says "done" when dotnet test fails.',
   },
   {
-    id: 'powerplatform', number: '07', track: 'powerPlatform', title: 'Design the claims solution on Power Platform', eyebrow: 'Power Platform track · BA-03', minutes: 60,
+    id: 'powerplatform', number: '07', track: 'powerPlatform', title: 'Design the claims solution on Power Platform', eyebrow: 'Power Platform track · BA-03', minutes: 45, quickMinutes: 35,
+    timing: '5–8 min team init & power-platform pack · 20–25 min autopilot (15 min with depth="quick") · 15 min trap score, OpenAPI check & licence review',
     goal: 'Add a Power Platform team that turns its release into a claims solution a maker team could build — Dataverse model, app, approval flow, integration, environments and licences — without touching a real environment.',
-    concept: 'The Power Platform team builds only from its own releases and does not wait for any other track. The squad proposes the power-platform pack because the request names the platform. Its pp-architect and pp-connector roles have bundled local Primary agents; broader architecture and connector work selects community Alternates that remain external. Official skills are separately opt-in, not installed or selected just because they exist on your machine. The hard problems here are licences, on-premises data and approvals, not code.',
+    concept: 'The Power Platform team builds only from its own releases and does not wait for any other track. The squad proposes the [power-platform pack](term:power-platform-pack) because the request names the platform. Its pp-architect and pp-connector roles have bundled local Primary agents; broader architecture and connector work selects community Alternates that remain external. Official skills are separately opt-in, and Copilot Studio preview jobs stay gated off unless explicitly approved. The hard problems here are licences, on-premises data and approvals, not code.',
     inputs: ['The first Power Platform release: docs/product/releases/power-platform-r1.md (Git tag product/power-platform-r1). Later releases (r2, r3…) are built the same way', 'knowledge-docs: BA-03, C-07 and C-08 in business-case.md, CS-24 to CS-28 in current-state.md, ES-32 to ES-37 in engineering-standards.md', `APM CLI ${apmCliVersion} only if you consent to installing an external Alternate or optional registered skill`],
     setup: [{
       id: 'power-platform-team',
-      title: '1. Add the Power Platform team',
-      description: 'Use the federation coordinator. This is another [init](term:init), inside the [federation](term:federation): it adds one team and starts no work. Accept a suitable [profile](term:profile) with the power-platform [pack](term:pack). The local Primaries, Squad Power Platform Architect and Squad Power Platform Integrator, ship with the package. If the task selects a community Alternate, the coordinator must show its registered install command and ask for consent. Install only what you approve, reload the client when needed, then confirm. If an Alternate is unavailable, record the blocked work and ask the coordinator how to narrow the scope; do not silently substitute the Primary. Keep optional skills planning-only: no Dataverse connection, deployment or tenant changes.',
+      title: '1. Add the Power Platform team (with the power-platform pack)',
+      description: 'Use the federation coordinator. This is another [init](term:init), inside the [federation](term:federation): it adds one team and starts no work. Accept a suitable [profile](term:profile) with the [power-platform pack](term:power-platform-pack). The local Primaries, Squad Power Platform Architect and Squad Power Platform Integrator, ship with the package. If the task selects a community Alternate or official skill, the coordinator must show its registered install command and ask for consent. Install only what you approve (decline Copilot Studio preview skills), reload the client when needed, then confirm. If an Alternate is unavailable, record the blocked work and ask the coordinator how to narrow the scope; do not silently substitute the Primary. Keep optional skills planning-only: no Dataverse connection, deployment or tenant changes.',
       request: {
+        promptId: 'pp-init',
         title: 'Add a team for the delivery-claims solution', kind: 'setup', entry: 'squad-federation', lifecycle: 'init', requiresSetup: ['promote'],
         text: 'init\n\nAdd a new team named "{powerPlatformSquad}" to this federation. Its job: design the delivery-claims solution of business area BA-03 on Power Platform — Power Apps, Power Automate and Dataverse — from the Power Platform releases the product team tagged product/power-platform-r1, product/power-platform-r2 and so on, starting with product/power-platform-r1. Use as context knowledge-docs (especially BA-03 in business-case.md, the claims facts in current-state.md and the Power Platform standards in engineering-standards.md) and docs/product. Keep the other teams\' work and responsibilities separate. Set up this team only; I will send the work request next.',
       },
       questions: [
         { ask: 'Which profile?', answer: 'Accept the profile it proposes. The profile is the kind of team; the Power Platform expertise comes from the pack below.', terms: ['profile', 'profile-table'] },
-        { ask: 'Which packs?', answer: 'Yes to power-platform: it adds pp-architect and pp-connector with bundled local Primaries. The broader design and custom connector in this exercise can select the external Power Platform Expert and Power Platform MCP Integration Expert Alternates; approve their registered installation only if needed. Official skills require separate opt-in. Skip Microsoft 365 Copilot, AWS and Foundry, and Fabric: they are for other technologies.', terms: ['pack'] },
+        { ask: 'Which packs?', answer: 'Yes to power-platform: it adds pp-architect and pp-connector with bundled local Primaries. The broader design and custom connector in this exercise can select the external Power Platform Expert and Power Platform MCP Integration Expert Alternates; approve their registered installation only if needed. Official skills require separate opt-in, and decline the preview Copilot Studio skills (add-knowledge, add-skill). Skip Microsoft 365 Copilot, AWS, Foundry, Fabric, AKS and Azure Functions.', terms: ['pack', 'power-platform-pack'] },
         { ask: 'Do you confirm the proposed team?', answer: 'Read the roster it shows, then confirm. Naming and approval choices are inherited from the federation, so they are usually not asked again.' },
       ],
       expected: [
@@ -705,8 +643,9 @@ export const lessons: Lesson[] = [
     }],
     flow: [{
       heading: '2. Ask for the claims solution design',
-      hint: 'The guide targets the Power Platform team with squad="…" and adds mode="autopilot" and your model routing. Nothing touches a tenant: the squad designs, writes a connector definition and reviews.',
+      hint: 'The guide targets the Power Platform team with squad="…" and adds mode="autopilot", your model routing and your work depth. Expect 20 to 25 minutes at standard depth, or around 15 minutes with depth="quick". Nothing touches a tenant: the squad designs, writes a connector definition and reviews.',
       prompt: {
+        promptId: 'pp-work',
         title: 'Design the delivery-claims solution', kind: 'work', entry: 'squad-federation', requiresSetup: ['power-platform-team'], squadTarget: 'powerPlatformSquad',
         text: 'Design the delivery-claims solution on Power Platform for the release tagged product/power-platform-r1 (docs/product/releases/power-platform-r1.md). Use knowledge-docs and docs/product. I need:\n1. A solution design with decision records: which components (canvas or model-driven app, Power Automate flows, Dataverse) serve each story of the release, and why.\n2. The Dataverse data model: tables, columns, relationships, choices and security roles.\n3. The approval flow, with the thresholds and the separation of duties the requirements set.\n4. How the solution reads order lines from Order Desk and hands credit-note requests to the finance system, today and after Order Desk moves to Azure, including a custom connector definition (OpenAPI 2.0) for the Order Desk API it needs, under powerplatform/.\n5. The environment, data loss prevention and application lifecycle plan: environments, managed solution, connection references and environment variables.\n6. A licence and monthly run-cost estimate compared with C-08, with the price sources you used.\n7. A traceability table from every story of the release to the design.\nFollow engineering-standards.md. Record dependencies on other tracks as OPEN items; do not wait for them. Do not create, import or change anything in a real Power Platform environment or tenant.',
       },
@@ -736,6 +675,7 @@ export const lessons: Lesson[] = [
     steps: [
       { title: 'Score the design', body: 'Use the review key. Record how many traps were addressed unprompted and whether each cites its identifier. Ask about any that are missing, and note that you had to.' },
       { title: 'Validate the connector definition yourself', body: 'Every JSON file under powerplatform/ must parse, and the connector definition must declare OpenAPI (swagger) 2.0. The command runs in PowerShell 7, which you already have on every system.', prompt: {
+        promptId: 'pp-json',
         title: 'Parse every JSON file under powerplatform/', kind: 'shell',
         text: 'Get-ChildItem powerplatform -Recurse -Filter *.json | ForEach-Object { $file = $_; try { $json = Get-Content -Raw $file.FullName | ConvertFrom-Json; $kind = if ($json.swagger) { "OpenAPI $($json.swagger)" } else { "JSON" }; "OK    $kind  $($file.FullName)" } catch { "FAIL  $($file.FullName)" } }',
         bash: 'pwsh -NoProfile -Command \'Get-ChildItem powerplatform -Recurse -Filter *.json | ForEach-Object { $file = $_; try { $json = Get-Content -Raw $file.FullName | ConvertFrom-Json; $kind = if ($json.swagger) { "OpenAPI $($json.swagger)" } else { "JSON" }; "OK    $kind  $($file.FullName)" } catch { "FAIL  $($file.FullName)" } }\'',
@@ -751,18 +691,20 @@ export const lessons: Lesson[] = [
       'The Order Desk API is recorded as an OPEN cross-track dependency, not assumed.',
       'Nothing was created or imported in a real Power Platform environment.',
     ],
-    recovery: 'If a selected external Alternate cannot be installed, record the blocked capability and ask the coordinator to propose a narrower supported scope; do not treat a silent Primary substitution as equivalent. Compare with a colleague who has the Alternate. If the run is still going after 40 minutes, prioritize the data model, the approval flow and the licence estimate.',
+    recovery: 'If a selected external Alternate cannot be installed, record the blocked capability and ask the coordinator to propose a narrower supported scope; do not treat a silent Primary substitution as equivalent. Compare with a colleague who has the Alternate. If the run is still going after 35 minutes, prioritize the data model, the approval flow and the licence estimate.',
   },
   {
     id: 'together', number: '08', title: 'Bring it together', eyebrow: 'Every team, one picture', minutes: 20,
-    goal: 'From a fresh conversation, get a consistent picture across the product team and your track teams, and the next actions — without telling the squad where its files are.',
-    concept: 'A federation is only useful if you can come back to it later. Open a new conversation, ask a status question across teams, and check whether the answer is grounded in the files. The tracks stay independent; this is where their open dependencies become visible.',
+    timing: '10 min cross-team status & file check · 10 min optional Squad Document or Governance Report',
+    goal: 'From a fresh conversation, get a consistent picture across the product team and your track teams, then optionally generate an executive readiness brief or the HTML governance dashboard — without telling the squad where its files are.',
+    concept: 'A federation is only useful if you can come back to it later. Open a new conversation, ask a status question across teams, and check whether the answer is grounded in the files. Then explore two companion agents that read squad state directly: Squad Document (writes targeted stakeholder reports without you reading raw decision logs) and Squad Governance Report (renders a self-contained 7-section HTML governance dashboard).',
     inputs: ['The same northwind-workshop folder', 'Your evidence log'],
     flow: [{
       heading: 'Ask for the status across teams',
       hint: 'Open a [new conversation](term:new-chat) and select Squad Federation Coordinator. This works because the squad keeps its memory in files, not in the chat: it finds the federation and each team\'s history by itself. This is a read-only question: no squad target and no mode. The guide lists the teams of the tracks you chose.',
       prompt: {
-        title: 'Where are we, across all teams?', kind: 'question', entry: 'squad-federation', terms: ['federation', 'state'], requiresSetup: ['promote', 'migration-team', 'modernization-team', 'power-platform-team'],
+        promptId: 'together-status',
+        title: 'Where are we, across all teams?', kind: 'question', entry: 'squad-federation', terms: ['federation', 'state', 'new-chat'], requiresSetup: ['promote', 'migration-team', 'modernization-team', 'power-platform-team'],
         text: 'Let\'s take stock across all teams. For each team — {teamList} — tell me what it produced, what was reviewed and what is still open. Then check consistency: is every story of each track release in docs/product/releases covered by that track\'s work or listed as remaining, and is every dependency between tracks recorded as an OPEN item rather than assumed?[[azure+dotnet: Is every application change listed by "{migrationSquad}" either done by "{modernizationSquad}" or listed as remaining?]] Cite the files you used. Do not change anything; end with the three most useful next actions.',
       },
     }],
@@ -773,26 +715,84 @@ export const lessons: Lesson[] = [
     ],
     steps: [
       { title: 'Verify one claim per team', body: 'Pick one statement about each team and open the file it cites. Is it true?' },
-      { title: 'Optional: a governance report', body: 'Ask the federation coordinator to "generate the squad governance report for the whole federation under docs/". The deterministic, self-contained HTML report shows gates, council verdicts, dispatches and the complete consumption ledger. Read each cost and ROI basis: exact-native, estimated, modeled or host-billed. The without-Squad comparison is a modeled counterfactual, not a measured saving; missing evidence stays unavailable, and a shared host session is counted once across the federation.' },
-      { title: 'Ask your own next question', body: 'Ask something real in your own words, for example how the portal or the claims app would call Order Desk. Observe which team the coordinator routes it to and why.' },
+      { title: 'Optional: generate an executive brief with Squad Document', body: 'Select Squad Document in your client: it searches squad state, decision logs and deliverables to produce a focused stakeholder document without you opening internal state files.', prompt: {
+        promptId: 'together-document',
+        title: 'Write an executive readiness brief with Squad Document', kind: 'question', entry: 'squad-document', terms: ['state', 'deliverables'], requiresSetup: ['promote'],
+        text: 'Write an executive readiness brief for Marc Dubois (COO) and Ahmed Benali (IT Manager) in docs/executive-readiness.md summarizing approved releases, key architecture and product decisions, OPEN cross-track dependencies and remaining risks from the federation state.',
+      } },
+      { title: 'Optional: a governance report', body: 'Select Squad Governance Report (or ask the federation coordinator) to generate the deterministic, self-contained 7-section HTML report showing gates, council verdicts, dispatches and the complete consumption ledger. Read each cost and ROI basis: exact-native, estimated, modeled or host-billed. The without-Squad comparison is a modeled counterfactual, not a measured saving; missing evidence stays unavailable, and a shared host session is counted once across the federation.', prompt: {
+        promptId: 'together-gov-report',
+        title: 'Generate the HTML Squad Governance Report', kind: 'question', entry: 'squad-governance-report', terms: ['state', 'routing'], requiresSetup: ['promote'],
+        text: 'Generate the complete federation governance report under docs/squad-governance-report.html.',
+      } },
     ],
-    evidence: ['The cross-team status answer', 'One verified claim per team', 'Optionally, the governance report'],
+    evidence: ['The cross-team status answer', 'One verified claim per team', 'Optionally, docs/executive-readiness.md and docs/squad-governance-report.html'],
     checks: ['The coordinator resumed without being given internal paths.', 'I verified one claim per team against the files.', 'I recorded the next actions.'],
     recovery: 'If previous work seems missing, check that the client opened the same folder. Never initialize a new federation over the existing one.',
   },
   {
-    id: 'reflect', number: '09', title: 'Reflect & next steps', eyebrow: 'Protected discussion', minutes: 25,
-    goal: 'Separate what the squads did on their own from what needed you, and decide where you would use this in real delivery.',
+    id: 'connector', number: '09', title: 'Extend with custom agents & Squad Connector', eyebrow: 'Optional · custom agents & orchestrators', minutes: 30, optional: true,
+    timing: '10 min External Agent Builder scaffold · 10 min connector binding (add or replace) · 10 min mailbox run & provenance check',
+    goal: 'Create Northwind\'s own external agent or multi-agent orchestrator and bind it to a squad through Squad Connector (Contract 1.1) in add or replace mode — without surrendering HVE governance, Scribe or Council.',
+    concept: 'Real organizations often already have custom agents, internal skills or multi-agent delivery workflows they want to keep owning. [Squad Connector](term:connector) (Contract 1.1, file transport only) lets an HVE Squad team delegate a bounded work role to a consumer-owned agent (endpointKind="agent") or multi-agent workflow (endpointKind="orchestrator") over a .connector-drops/ mailbox. Two binding modes live in team.md: add introduces a new specialist role to the roster, while replace puts your agent or orchestrator behind an existing work role such as researcher or developer. HVE\'s coordinators, Scribe and council verdicts remain strictly internal and cannot be bound or replaced.',
+    inputs: ['Your open federation from Part 04 (or any initialized squad)', 'PowerShell 7+ (pwsh) for deterministic manifest validation, registration and the example runner'],
+    flow: [
+      {
+        heading: '1. Scaffold a custom agent or orchestrator with Squad External Agent Builder',
+        hint: 'Select Squad External Agent Builder in your client. It checks existing HVE Core skills first to avoid duplication, proposes your standalone agent (or multi-agent orchestrator), its Contract 1.1 file-transport manifest under connectors/, its .connector-drops/ mailbox, a removable PowerShell demonstration runner and a step-by-step runbook, and waits for your confirmation before calling New-SquadExternalEndpoint.ps1. (Tip: if you already have an external agent implementation and only need the manifest and adapter template, select Squad Connector Builder instead.)',
+        prompt: {
+          promptId: 'connector-scaffold',
+          title: 'Create a Northwind external compliance agent and Contract 1.1 connector', kind: 'question', entry: 'squad-external-agent-builder', terms: ['connector', 'hve-core'],
+          text: 'Create (create mode) a standalone Northwind external agent (endpointKind="agent", or propose an "orchestrator" option if I ask for a multi-agent workflow) named nw-compliance-assessor.\nIts bounded responsibility: check any Northwind design or plan against European Union data residency (NFR-03), 7-year audit retention (NFR-08, NFR-09) and the on-premises StockPilot boundary (C-03) using knowledge-docs/engineering-standards.md.\nPlace the Contract 1.1 (transport: file) manifest at connectors/nw-compliance-assessor.json and its mailbox under .connector-drops/nw-compliance-assessor/, allowing the security and researcher work roles. Show me the proposed files, removable demonstration runner and runbook, and wait for my confirmation before generating them and validating the manifest.',
+        },
+      },
+      {
+        heading: '2. Connect it to a squad in add or replace mode',
+        hint: 'Switch to Squad Federation Coordinator. You can bind the manifest to "{productSquad}" (or one of your track teams) either in add mode (a new specialist role aligned to security) or replace mode (overlaying researcher with Default Execution set to ask or connector). Deterministic registration (Register-SquadConnector.ps1) previews and writes ## Connector Bindings in team.md without a Scribe model dispatch.',
+        prompt: {
+          promptId: 'connector-register',
+          title: 'Register the connector binding on a federation team', kind: 'question', entry: 'squad-federation', requiresSetup: ['promote'], terms: ['connector', 'federation', 'state'],
+          text: 'I generated the Contract 1.1 connector manifest connectors/nw-compliance-assessor.json in this repository. Help me connect it to the "{productSquad}" team in add mode (adding specialist role nw-compliance aligned to security — and briefly contrast replace mode on researcher before I confirm), keeping HVE coordination, Scribe and council unchanged. Show the planned deterministic registration receipt and wait for my confirmation before applying it.',
+        },
+      },
+    ],
+    behaviors: [
+      'Squad External Agent Builder never puts shell commands, URLs, agent paths or secrets into a manifest: Contract 1.1 uses transport: "file" only.',
+      'The coordinator refuses any attempt to target or replace coordinator, federation-coordinator, scribe or council.',
+      'When a delegated task waits on .connector-drops/, the stage stays awaiting rather than silently falling back to an internal agent.',
+      'Completed connector dispatches record External provenance, Verification: external, unverified and External-unmetered in history/Squad Connector.md.',
+    ],
+    steps: [
+      { title: 'Validate the generated Contract 1.1 manifest', body: 'Run the command below to verify that every manifest under connectors/ parses cleanly and declares contractVersion 1.1 with transport file.', prompt: {
+        promptId: 'connector-validate',
+        title: 'Inspect manifests under connectors/', kind: 'shell',
+        text: 'Get-ChildItem connectors -Filter *.json | ForEach-Object { $m = Get-Content -Raw $_.FullName | ConvertFrom-Json; "OK  id=$($m.connectorId)  v=$($m.contractVersion)  kind=$($m.endpointKind)  transport=$($m.transport)  file=$($_.Name)" }',
+        bash: 'pwsh -NoProfile -Command \'Get-ChildItem connectors -Filter *.json | ForEach-Object { $m = Get-Content -Raw $_.FullName | ConvertFrom-Json; "OK  id=$($m.connectorId)  v=$($m.contractVersion)  kind=$($m.endpointKind)  transport=$($m.transport)  file=$($_.Name)" }\'',
+      } },
+      { title: 'Run a bounded exchange with the removable runner', body: 'Follow the generated runbook: trigger a bounded task for your bound role, run the generated removable PowerShell runner against .connector-drops/ while the request is awaiting, and ask the coordinator to resume the pending taskId.' },
+      { title: 'Inspect External provenance in team.md and history/', body: 'Open the bound team\'s team.md (## Connector Bindings) and, after a completed exchange, history/Squad Connector.md to confirm the three required lines: External provenance, Verification: external, unverified and External-unmetered.' },
+    ],
+    evidence: ['Validated Contract 1.1 manifest connectors/nw-compliance-assessor.json', 'The ## Connector Bindings table in team.md', 'Optionally, a completed exchange in history/Squad Connector.md'],
+    checks: [
+      'I scaffolded and validated a Contract 1.1 (transport: file) connector manifest with Squad External Agent Builder or Squad Connector Builder.',
+      'I previewed or registered an add or replace binding in team.md and confirmed that coordinator, Scribe and council remain protected.',
+    ],
+    recovery: 'Remember that the generated PowerShell runner is removable consumer-owned example code, not a background daemon started by HVE Squad. Until a result envelope lands in .connector-drops/, the stage honestly stays awaiting.',
+  },
+  {
+    id: 'reflect', number: '10', title: 'Reflect & next steps', eyebrow: 'Protected discussion', minutes: 20,
+    timing: '10 min compare evidence · 5 min human gates · 5 min adoption plan',
+    goal: 'Separate what the squads did on their own from what needed you, compare the impact of packs, routing and depth, and decide where you would use this in real delivery.',
     concept: 'Judge by evidence, not by confident summaries. An unfinished Web project with honest status is a better result than a "done" that fails its tests; a licence estimate that says ASSUMPTION is better than one that hides it.',
     inputs: ['Your evidence log', 'Your counts: requirement coverage, invented statements, and the score of each track you ran'],
     steps: [
-      { title: 'Compare numbers (10 min)', body: 'Share your coverage, invention count and the score of each track you ran (blockers found, tests passing, traps found) with the group. Where results differ, compare the tracks and scope chosen, the session model, the model routing, the client and what the intake validator asked.' },
+      { title: 'Compare numbers (10 min)', body: 'Share your coverage, invention count and the score of each track you ran (blockers found, tests passing, traps found) with the group. Where results differ, compare the tracks and scope chosen, the session model, model routing (off, ranked, economy, manual), work depth (standard vs quick) and the azure-cloud, dotnet and power-platform packs.' },
       { title: 'Name where a human was essential (5 min)', body: 'Which answer, correction or approval changed the outcome? Approving the releases is one of them. That is where accountability stays with you.' },
-      { title: 'Decide what your practice would standardize (10 min)', body: 'Engineering standards, identifiers in source documents, intake before drafting, track tags and releases, review keys? Pick one thing to adopt and one real project to try it on.' },
+      { title: 'Decide what your practice would standardize (5 min)', body: 'Engineering standards, identifiers in source documents, Squad Coach upfront discovery, intake before drafting, track tags and releases, official packs, or Squad Connector for internal agents? Pick one thing to adopt and one real project to try it on.' },
     ],
     evidence: ['Your completed evidence log', 'One adoption decision and one candidate project'],
     checks: ['I can show one human decision that improved the result.', 'I chose one practice to adopt and one project to try it on.'],
-    recovery: 'Blockers are valid discussion material. Bring them with what triggered them, the model and the client.',
+    recovery: 'Blockers are valid discussion material. Bring them with what triggered them, the model, the routing and the client.',
   },
 ]
 
@@ -802,7 +802,8 @@ export const lifecycleSteps = lessons.flatMap(lesson =>
 
 export const troubleshooting: [string, string][] = [
   ['What do init, promote, a profile or a pack mean?', 'Read the [core ideas](term:concepts) page once: every term has its own section. In short, [init](term:init) creates one team and starts no work, [promote](term:promote) turns your team into the first member of a [federation](term:federation), a [profile](term:profile) is the kind of team you create, and a [pack](term:pack) is an optional technology add-on.'],
-  ['Which Copilot client should I use?', 'Copilot CLI is recommended: it is the quickest to start and the client used in HVE Squad demos. The Copilot App suits people who would rather not use a terminal. VS Code also works: install the self-contained plugin, then choose the squad agent from the agents dropdown in Copilot Chat. APM is only the repository-local fallback. In every client the messages are the same; only the way you select the agent differs.'],
+  ['Updating the plugin stays stuck on an old version (e.g. v0.20.0) or fails', `If you added the marketplace from the pre-transfer repository ${legacyRepoMarketplace}, running marketplace update keeps polling that old location. Uninstall ${pluginId}, run copilot plugin marketplace remove hve-squad, then add ${pluginMarketplace} and install ${pluginId} again (see the dedicated switch block in Part 00, step 3). In the Copilot App and VS Code, likewise remove any ${legacyRepoMarketplace} marketplace entry before adding ${pluginMarketplace}, then run [Squad Doctor](term:doctor) with check in a fresh session.`],
+  ['Which Copilot client should I use?', 'Copilot CLI is recommended: it is the quickest to start and the client used in HVE Squad demos. The Copilot App suits people who would rather not use a terminal (and includes [HVE Squad Studio](term:studio)). VS Code also works: install the self-contained plugin, then choose the squad agent from the agents dropdown in Copilot Chat. APM is only the repository-local fallback or optional pack-skill installer. In every client the messages are the same; only the way you select the agent differs.'],
   ['The starter button only downloads a zip', 'Your browser cannot write to folders (Firefox and Safari). Extract the zip wherever you want the workshop folder; it contains a single northwind-workshop folder.'],
   ['The folder already exists', 'The guide never overwrites. Choose another location, or rename the existing folder first.'],
   ['Which tracks should I choose?', 'The tracks your practice delivers. Azure and .NET work on the legacy code; Power Platform is about licences, data and approvals. They are independent, so one track is enough for a first run. In a group, split the tracks across tables.'],
@@ -811,19 +812,19 @@ export const troubleshooting: [string, string][] = [
   ['How do I build a track\'s next release?', 'Each track part builds the first release (r1). For the next one, send the same work request to the same team again, replacing r1 with r2 in the release tag and file name. The team keeps its history, so it builds on what it did for r1.'],
   ['How do the release tags map to GitHub or Jira?', 'ES-39 in engineering-standards.md: in Azure DevOps the track and release tags are work-item tags; in GitHub they are issue labels, and each release is also a milestone; in Jira they are labels, and each release is also a fix version. The Git tag product/<track>-r<n> always marks the approved documents of that release.'],
   ['git commit asks who I am', 'Set an identity for this folder only: git config user.name "Your Name" and git config user.email you@example.com. Then commit again.'],
-  ['Which agent do I select?', 'Parts 02–03: Squad Coordinator. Parts 04–08: Squad Federation Coordinator. The optional Squad Coach in Part 01: Squad Coach. The Part 00 readiness question: no squad agent. Select the agent in your client — /agent in Copilot CLI, the agent list in the App, the agents dropdown in VS Code Copilot Chat — then paste the message.'],
-  ['The coordinators are missing from the agent list', `Check the client you actually use: the App and the CLI can have different plugin homes. Install the single hve-squad plugin from ${pluginMarketplace}, which bundles its pinned HVE Core. Remove the retired hve-squad-plugin marketplace and its two entries before migrating; do not install a second hve-core plugin. Update or reinstall hve-squad, start a fresh session and ask the coordinator to run squad-doctor. For the VS Code APM fallback, reload the window after installation.`],
-  ['The readiness check says LEGACY, WRONG VERSION or UNVERIFIED', `Download a fresh starter from this guide: previously downloaded readiness scripts do not update themselves. The CLI check expects ${pluginId} at exactly v${squadVersion}, not the retired two-plugin pair or a preview build. Follow Part 00 to migrate or update, then rerun the check. App and VS Code installations must be verified inside their own client, not through the CLI.`],
-  ['The coordinator lists packs I do not use (Foundry, AWS, Microsoft 365 Copilot…)', '[Packs](term:pack) are optional add-ons, not alternatives to the profile. The list is a menu of everything the squad knows, not a recommendation, so choose none unless your project uses that technology. In this workshop only the Power Platform track uses a pack (power-platform). If you do not know what an option does, answer in your own words and ask the coordinator to explain it before you choose.'],
+  ['Which agent do I select?', 'Part 00 step 4: Squad Doctor. Part 01 re-imagination: Squad Coach. Parts 02–03: Squad Coordinator. Parts 04–08: Squad Federation Coordinator (plus optional Squad Document and Squad Governance Report in Part 08). Optional Part 09: Squad External Agent Builder (or Squad Connector Builder), then Squad Federation Coordinator. The Part 00 case question: no squad agent.'],
+  ['The coordinators are missing from the agent list', `Check the client you actually use: the App and the CLI can have different plugin homes. Install the single hve-squad plugin from ${pluginMarketplace}, which bundles its pinned HVE Core. Remove the retired hve-squad-plugin marketplace and any pre-transfer ${legacyRepoMarketplace} entry before installing; do not install a second hve-core plugin. Start a fresh session and run [Squad Doctor](term:doctor) with check. For the VS Code APM fallback, reload the window after installation.`],
+  ['The readiness check says LEGACY, WRONG VERSION or UNVERIFIED', `Download a fresh starter from this guide: previously downloaded readiness scripts do not update themselves. The CLI check expects ${pluginId} at exactly v${squadVersion} from ${pluginMarketplace}, not the retired two-plugin pair or a preview build. Follow Part 00 to switch or update, then rerun the check. App and VS Code installations must be verified inside their own client, not through the CLI.`],
+  ['Which packs fit Azure, .NET and Power Platform — and what about Foundry, AWS or AKS?', '[Packs](term:pack) are optional platform add-ons layered onto a profile. In this workshop: Part 02 (Product) uses no pack; Part 05 (Azure) uses [azure-cloud](term:azure-cloud-pack) (skip aks because C-06 forbids Kubernetes, and decline the azure-local-multi-rack preview); Part 06 (.NET) uses [dotnet](term:dotnet-pack) (decline .NET 11 and mock-analysis previews); Part 07 (Power Platform) uses [power-platform](term:power-platform-pack) (decline Copilot Studio previews). If APM 0.29.0 is not installed, decline external skill installation and run with the bundled roles.'],
   ['Should I start a new conversation after init or promote?', 'It is recommended, and it is safe. The squad keeps its decisions and history in files under .copilot-tracking/squad/ and rereads them at every turn, so a fresh conversation resumes exactly where the files say you are; the chat itself is not the memory. In the new conversation select the same agent again and send the next message. See [starting a new chat](term:new-chat) in the docs.'],
   ['Where did the squad write its files?', 'Each role writes to a fixed folder: research under .copilot-tracking/research/, plans under .copilot-tracking/plans/, changes under .copilot-tracking/changes/, reviews under .copilot-tracking/reviews/; the technical writer writes under docs/ and the architects under docs/architecture/. The team\'s own state (roster, decisions, history) is under .copilot-tracking/squad/, and in a federation each member\'s folders sit under its own members/ folder. You can change where a role writes by editing its Deliverable Root cell in team.md: see [where deliverables go](term:deliverables).'],
   ['"No squad state detected"', 'Normal before Part 02. The coordinator will propose a team when you send the first setup message.'],
   ['The Power Platform specialists are not installed', `The pack's local Primary agents ship with HVE Squad. Broader architecture or connector work selects community Alternates from github/awesome-copilot, which remain external: approve the registered install command only when needed (APM CLI ${apmCliVersion}, --target copilot). If a selected Alternate is unavailable, the coordinator must escalate, not silently use the Primary. Official skills are separately opt-in; keep this workshop planning-only with no tenant connections or changes.`],
   ['The squad convened a council that is not in the team or not logged', 'Record it in your evidence log: what triggered it, which roles took part, and whether decisions.md has an entry. Then ask the coordinator where the council is recorded. If it is not, report it as a GitHub issue with that evidence.'],
-  ['My token usage is very different from a colleague\'s', 'Compare the tracks and scope first, then the session model (Auto and small models behave very differently from Sonnet-class models), then the model routing: ranked and manual send each role to a different model. Then compare what the intake validator asked. Some variation is normal for non-deterministic systems.'],
-  ['Which model routing should I choose?', 'Off if you want the simplest, most comparable run: every role uses your session model. Ranked if you want the squad to match each role to the best-fitting model your client offers. Manual if you want to choose yourself; the squad asks once before the first dispatch. All three work for this workshop.'],
-  ['Should I use depth=quick or Economy routing?', 'Keep the workshop comparable: these messages omit depth, which means standard on every turn, independently of routing. depth=quick is an explicit per-turn opt-in, not another model-routing choice; it never weakens required gates. Economy routing is also optional and needs explicit consent for all routed roles. Explore these after the workshop rather than changing the baseline halfway through.'],
+  ['My token usage is very different from a colleague\'s', 'Compare the tracks and scope first, then the session model (Auto and small models behave very differently from Sonnet-class models), then [model routing](term:routing) and [work depth](term:depth), then what the intake validator asked. Some variation is normal for non-deterministic systems.'],
+  ['How do routing (including Economy) and depth (Standard vs Quick) differ?', '[Model routing](term:routing) chooses which model runs each role and persists in team.md: off keeps your session/pinned models, ranked picks the strongest fitting benchmarked model, [economy](term:economy) picks the cheapest known-price model inside each role\'s quality floor (after one-time Scope: all-roles consent, with one escalation to Ranked after a failed review), and manual lets you choose per class or role. [Work depth](term:depth) (depth="standard" or depth="quick") is per-turn only: quick shrinks Research/Plan waves and implementation diffs without ever changing models or weakening any gate.'],
   ['Manual routing keeps asking for models', 'It asks once per team, before that team\'s first dispatch, and saves your picks in team.md. Each new track team (Azure, .NET, Power Platform) asks for its own roster. If VS Code rejects a pick, you are asked again with the models it actually offers.'],
+  ['How do I connect our own agents or orchestrators without editing HVE Squad?', 'Follow optional Part 09: use Squad External Agent Builder (to scaffold a new standalone agent or multi-agent orchestrator) or Squad Connector Builder (to wrap an existing one) into a Contract 1.1 file-transport manifest under connectors/ and a .connector-drops/ mailbox, then register an add or replace binding in team.md through [Squad Connector](term:connector). HVE coordinators, Scribe and council remain internal.'],
   ['The documents contain requirements that are not in the case', 'Point the squad to the statement and the identifier it cites and ask it to either show the source or relabel it ASSUMPTION (ES-03). Count it in your evidence log.'],
   ['The stories are hard to read', 'Ask the squad to rewrite the specific story following ES-05, so that a developer who has not read the case can build it. Keep the before and after as evidence.'],
   ['Azure DevOps works in chat but not for the specialists', 'A known limitation in some clients: MCP servers configured for the session are not always visible to dispatched specialists. Let the coordinator publish, or skip Part 03. Use the official remote server only; behaviour differs with custom servers.'],
@@ -833,7 +834,7 @@ export const troubleshooting: [string, string][] = [
   ['Bicep fails to build', 'Run az bicep install (or az bicep upgrade). If it still fails, give the squad the exact error and record that the review missed it.'],
   ['APM says "No harness detected" or installs fail', `Use APM CLI ${apmCliVersion} exactly and add --target copilot. Authenticate GitHub first (gh auth login) to avoid slow anonymous rate limits.`],
   ['I am on macOS', 'Use bash tools/ready.sh and the bash variant shown under each terminal command. Everything else is identical.'],
-  ['Time is running out', 'Finish what each track needs first (releases and tags, the change list, Core and Tests, the data model and licence estimate), record the rest as open, and protect the discussion time.'],
+  ['Time is running out', 'Switch work depth to depth="quick" for your remaining work requests, finish what each track needs first (releases and tags, the change list, Core and Tests, the data model and licence estimate), record the rest as open, and protect the discussion time.'],
 ]
 
 export const sources = [
@@ -843,14 +844,17 @@ export const sources = [
   { name: 'Core ideas: profiles and packs', url: docsPage('concepts.html', 'profiles-and-packs') },
   { name: 'Core ideas: interactive and autopilot', url: docsPage('concepts.html', 'autonomy-modes') },
   { name: 'Core ideas: where the squad keeps its memory', url: docsPage('concepts.html', 'durable-state') },
+  { name: 'Core ideas: Squad Coach', url: docsPage('concepts.html', 'squad-coach') },
   { name: `HVE Squad v${squadVersion} release notes`, url: squadReleaseUrl },
-  { name: 'Getting started: install per client', url: `${docsUrl}getting-started.html` },
-  { name: 'Usage: profiles, packs, federation, promotion and autopilot', url: `${docsUrl}usage.html` },
-  { name: 'Usage: model selection per role (routing=)', url: `${docsUrl}usage.html#model-selection-per-role` },
+  { name: 'Getting started: install per client & HVE Squad Studio', url: `${docsUrl}getting-started.html` },
+  { name: 'Usage: profiles, packs (azure-cloud, dotnet, power-platform), federation and promotion', url: `${docsUrl}usage.html` },
+  { name: 'Usage: model selection per role (routing= and Economy mode)', url: `${docsUrl}usage.html#model-selection-per-role` },
+  { name: 'Usage: work depth (depth=standard|quick)', url: `${docsUrl}usage.html#work-depth` },
+  { name: 'Integration guide: Squad Connector (Contract 1.1, replace & add)', url: `${docsUrl}connector.html#consumer-walkthrough` },
   { name: 'Demo: Product squad', url: `${docsUrl}demo-3.html` },
   { name: 'Demo: Migration autopilot', url: `${docsUrl}demo-2.html` },
   { name: 'Demo: Modernize .NET', url: `${docsUrl}demo-4.html` },
-  { name: 'HVE Squad: stable self-contained plugin (all clients)', url: `${docsUrl}getting-started.html` },
+  { name: 'HVE Squad troubleshooting & Squad Doctor', url: `${docsUrl}troubleshooting.html` },
   { name: `APM CLI ${apmCliVersion}`, url: apmCliReleaseUrl },
   { name: 'Remote Azure DevOps MCP server', url: 'https://learn.microsoft.com/azure/devops/mcp-server/remote-mcp-server' },
   { name: 'GitHub Copilot CLI: installation', url: 'https://docs.github.com/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli' },
@@ -859,10 +863,339 @@ export const sources = [
   { name: 'Python diagrams library: Azure nodes', url: 'https://diagrams.mingrammer.com/docs/nodes/azure' },
   { name: `diagrams v${diagramsVersion} release notes (Azure icons V18)`, url: `https://github.com/mingrammer/diagrams/releases/tag/v${diagramsVersion}` },
   { name: 'Azure architecture icons', url: 'https://learn.microsoft.com/azure/architecture/icons/' },
-  { name: 'HVE Squad troubleshooting: Azure-icon diagrams', url: `https://peter-n91.github.io/hve-squad/troubleshooting.html` },
   { name: 'Power Platform application lifecycle management', url: 'https://learn.microsoft.com/power-platform/alm/' },
   { name: 'Power Platform data loss prevention policies', url: 'https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention' },
   { name: 'Power Platform custom connectors', url: 'https://learn.microsoft.com/connectors/custom-connectors/' },
   { name: 'Power Platform licensing', url: 'https://learn.microsoft.com/power-platform/admin/pricing-billing-skus' },
-  { name: 'Microsoft HVE Core', url: 'https://github.com/microsoft/hve-core' },
+  { name: 'Microsoft HVE Squad on GitHub', url: 'https://github.com/microsoft/hve-squad' },
+  { name: 'Microsoft HVE Core on GitHub', url: 'https://github.com/microsoft/hve-core' },
 ]
+
+export const englishUi: UiCopy = {
+  pageTitle: 'HVE Squad | Hands-on workshop',
+  metaDescription: 'A hands-on HVE Squad workshop: re-imagine Northwind with Squad Coach, write numbered, tagged releases, build with Azure, .NET and Power Platform packs, and extend with Squad Connector.',
+  brandSubtitle: 'Hands-on workshop',
+  skipToContent: 'Skip to content',
+  sessionSetupBtn: 'Session setup',
+  docsBtn: 'Docs',
+  languageLabel: 'Language',
+  switchThemeTo: target => `Switch to ${target} theme`,
+  themeDark: 'Dark',
+  themeLight: 'Light',
+  mobilePartsBtn: 'Parts',
+  closeBtn: 'Close',
+  sessionSetupHeading: 'Session setup',
+  sessionSetupIntro: 'Stored only in this browser. The guide uses these values to complete the requests you copy. Never enter passwords or tokens.',
+  teamNamesHeading: 'Team names · Parts 04–09',
+  teamNamesIntro: 'Keep the suggestions unless a squad registers a different name; then type the registered name here. Only the teams of your tracks are listed.',
+  adoHeading: 'Azure DevOps · Part 03 only (optional)',
+  sidebarHeading: 'Your journey',
+  overviewNav: 'Overview',
+  resourcesNav: 'Resources',
+  optionalBadge: 'optional',
+  beforeSessionLabel: 'Before the session',
+  selfPacedLabel: 'self-paced',
+  minutesSuffix: 'min',
+  progressHeading: 'Your progress',
+  coreCheckpointsAria: 'Core checkpoints completed',
+  progressSummary: (core, coreTotal, optional, optionalTotal) => `${core} of ${coreTotal} core checkpoints · ${optional} of ${optionalTotal} optional`,
+  exportProgressBtn: 'Export progress',
+  clientTablistAria: 'Copilot client',
+  recommendedBadge: 'recommended',
+  showNavBtn: 'Show navigation',
+  focusViewBtn: 'Focus view',
+  printGuideBtn: 'Print guide',
+  clientNotePrefix: 'Your client:',
+  clientNoteBody: {
+    beforePart: 'Every request below is the same text in every client, to paste into the selected agent\'s chat; the line above each block says how to select the agent in your client. Work requests also carry your routing and depth — change them below or in ',
+    partLink: 'Part 01',
+    afterPart: '.',
+  },
+  resetOptionsBtn: 'Reset options',
+  pageNotFoundTitle: 'Page not found',
+  pageNotFoundBody: 'This link does not match a part of the workshop.',
+  backToOverview: 'Back to the overview',
+  prevNextAria: 'Previous and next part',
+  footerLeft: 'HVE Squad hands-on workshop · Northwind Traders is fictitious',
+  footerRight: { builtFor: 'Built for', latestRelease: 'the latest release', tracksLabel: 'tracks', checkpointsLabel: 'core checkpoints' },
+  resetDialogTitle: 'Reset this guide\'s data?',
+  resetDialogBody: 'This removes your checkpoints and Session setup for this workshop from this browser. Your northwind-workshop folder is not touched.',
+  keepDataBtn: 'Keep my data',
+  confirmResetBtn: 'Reset',
+  resetDoneStatus: 'This guide\'s browser data was reset.',
+  copiedStatus: 'Copied. Paste it into your client in the northwind-workshop folder.',
+  clipboardUnavailableStatus: 'The clipboard is not available here. Select the text and copy it manually.',
+  starterFolderDone: (count, location) => `Done: ${count} files written to ${location}. Next: open a terminal in that folder and run the readiness check.`,
+  starterZipDone: 'Your browser cannot write to folders, so the starter was downloaded as northwind-workshop.zip. Extract it where you want the workshop folder.',
+  starterExists: location => `${location} already exists. Nothing was overwritten: choose another location or rename the existing folder.`,
+  starterCancelled: 'No folder was chosen. Nothing was written.',
+  starterFailed: err => `Writing the folder failed (${err}). Download the zip instead.`,
+  starterPanelDefaultHeading: 'Get the starter solution',
+  starterPanelBody: canWrite => `One click gives you the complete Northwind workshop folder: the business case with its three business areas, the engineering standards, the legacy .NET Framework 4.8 Order Desk with its 28 tests, the database scripts and a readiness check. ${canWrite ? 'You choose where it goes on your computer.' : 'Your browser will download it as a zip file.'}`,
+  preferZipPrefix: 'Prefer a zip?',
+  downloadZipLink: 'Download northwind-workshop.zip',
+  writingFilesBtn: 'Writing files…',
+  chooseFolderBtn: 'Choose a folder and get the starter',
+  downloadStarterBtn: 'Download the starter',
+  routingLabel: 'Model routing',
+  routingAria: ctx => `Model routing (${ctx})`,
+  economyConsentHint: 'Economy note: the first switch to economy asks once for explicit all-roles consent before dispatching; gates and minimum quality floors stay intact.',
+  depthLabel: 'Work depth',
+  depthAria: ctx => `Work depth (${ctx})`,
+  whatYouBuildAria: ctx => `What you build (${ctx})`,
+  whatYouBuildEyebrow: 'Your choice · shapes the product request, updates time estimates and hides the tracks you do not build',
+  whatYouBuildCompactHeading: 'What you build · Parts 05–07',
+  whatYouBuildHeading: 'Choose what you build',
+  tracksLabel: 'Tracks',
+  tracksToBuildAria: ctx => `Tracks to build (${ctx})`,
+  deliveryTracksAria: ctx => `Delivery tracks (${ctx})`,
+  trackLockedAllTitle: 'Choose One track or Selected tracks to leave a track out.',
+  trackLockedLastTitle: 'Keep at least one track: the product team needs releases to write.',
+  partPrefix: 'Part',
+  productScopeLabel: 'Product scope',
+  productScopeAria: ctx => `Product scope (${ctx})`,
+  termColumn: 'Term',
+  inOneSentenceColumn: 'In one sentence',
+  opensDocsSuffix: 'Opens the HVE Squad docs.',
+  readMoreLabel: 'Read more',
+  doesLabel: 'It does',
+  doesNotLabel: 'It does not',
+  coordinatorQuestionsAria: 'What the coordinator will ask',
+  coordinatorQuestionsHeading: 'What the coordinator will ask — and what to answer here',
+  coordinatorQuestionsIntro: 'Expect questions like these; the wording and the order vary. If an option is unclear, ask the coordinator to explain it instead of guessing.',
+  copyPowerShellBtn: 'Copy PowerShell',
+  copyBtn: 'Copy',
+  copyBashBtn: 'Copy bash',
+  termsInMessageLabel: 'Terms in this message:',
+  windowsPowerShellLabel: 'Windows · PowerShell',
+  macLinuxBashLabel: 'macOS / Linux · bash',
+  copyUnlocksWhen: 'Copy unlocks when:',
+  goToStep: title => `Go to “${title}”`,
+  goToCheckpoint: 'Go to that checkpoint',
+  openSessionSetupBtn: 'Open Session setup',
+  installStepEyebrow: client => `Step 3 · ${client}`,
+  installHeading: version => `Install HVE Squad ${version}`,
+  installReleaseNotePrefix: 'The guide always targets the latest microsoft/hve-squad release:',
+  installReleaseNotesLink: version => `v${version} release notes`,
+  cliInstallBody: (id, version) => `Run these in any terminal. One self-contained plugin bundles HVE Squad and its pinned HVE Core; do not install a second hve-core plugin. copilot plugin list must show ${id} (v${version}). Then start a fresh copilot session inside the northwind-workshop folder and type /agent: you should see Squad Coordinator, Squad Federation Coordinator, Squad Coach and Squad Doctor.`,
+  cliUpdateSummary: version => `Already installed from microsoft/hve-squad? Update to v${version}`,
+  cliUpdateBody: 'For the self-contained plugin, refresh the marketplace and update the one plugin; Squad and HVE Core update together.',
+  cliSwitchRepoSummary: `Installed for an earlier workshop from ${legacyRepoMarketplace}? Switch to ${pluginMarketplace}`,
+  cliSwitchRepoBody: (oldMarket, newMarket) => `Pre-transfer installations still point the hve-squad marketplace at ${oldMarket}, which blocks updates or returns 404. Uninstall the plugin, remove that marketplace entry, then add ${newMarket}. Your project files and squad state are untouched.`,
+  cliMigrateSummary: 'Still using the retired hve-squad-plugin marketplace?',
+  cliMigrateBody: 'Remove its two entries and marketplace first, then install the self-contained plugin. Run the uninstall commands only for entries shown by copilot plugin list. Your project and squad state are not reset.',
+  appInstallSteps: (marketplace, oldMarket, version) => [
+    `If migrating from an earlier workshop, uninstall any hve-squad-plugin or pre-transfer ${oldMarket} entries and remove that marketplace first.`,
+    `Open Customize → Plugins in the Copilot App and add ${marketplace}.`,
+    'Install only hve-squad. It bundles HVE Core; do not install a second hve-core plugin.',
+    `Check that hve-squad shows version ${version}. Use the App's update action if it is older.`,
+    'Start a fresh session on the northwind-workshop folder, run Squad Doctor with check, and check the agent list for Squad Coordinator and Squad Federation Coordinator.',
+  ],
+  appInstallNote: {
+    beforeLink: 'Labels can vary between App versions; see the ',
+    linkText: 'installation guide',
+    afterLink: '. A CLI installation does not prove that the App has the plugin.',
+  },
+  vscodeInstallBody: (marketplace, oldMarket, version) => `Use the self-contained plugin, with no APM installation required. If you previously added ${oldMarket} or hve-squad-plugin, remove that old marketplace first. Run Chat: Manage Plugin Marketplaces, add ${marketplace}, then open Chat: Open Customizations → Plugins and install hve-squad. Check version ${version}; use Check for and Apply Updates if needed. Do not keep an old APM copy or a second HVE Core plugin enabled alongside it.`,
+  vscodeInstallNote: 'Start a fresh Copilot session, select Squad Doctor in the agents dropdown and send check to confirm everything is healthy. Choose an agent there and paste the message the guide gives you.',
+  vscodeApmSummary: 'Fallback: install into the repository with APM',
+  vscodeApmBody: apmVer => `Use this instead of the plugin only when customizations must live in the repository. APM must be exactly ${apmVer}. Sign in to GitHub (gh auth login) to avoid slow rate limits, then run this inside northwind-workshop:`,
+  vscodeApmFooter: 'Reload VS Code and check the agents dropdown.',
+  adoMcpEyebrow: client => `Official remote Azure DevOps MCP server · ${client}`,
+  adoMcpHeading: 'Connect Azure DevOps',
+  adoMcpVscodeBody: 'Create .vscode/mcp.json in the northwind-workshop folder, start the server from the MCP view and sign in with your work account when asked.',
+  adoMcpCliBody: 'In Copilot CLI run /mcp add and enter: name ado, type HTTP, URL below, tools *. Sign in when prompted. The equivalent entry in ~/.copilot/mcp-config.json is:',
+  adoMcpAppBody: 'Open the App\'s MCP server settings, add an HTTP server named ado with the URL below, and sign in with your work account when asked.',
+  adoMcpFooter: {
+    beforeLink: 'Then, with no squad agent selected, ask “List my Azure DevOps projects”. Your organization must use Microsoft Entra ID. Never paste a token into a prompt or file. ',
+    linkText: 'Microsoft Learn: remote MCP server',
+  },
+  optionalBannerStrong: 'Optional.',
+  optionalBannerBody: 'Its checkpoints do not count toward your core progress, and nothing later depends on it.',
+  theIdeaLabel: 'The idea',
+  timingBreakdownLabel: 'Time breakdown',
+  prereqSectionHeading: 'Everything you need, in one place',
+  prereqBadge: 'Check once',
+  prereqColumns: { what: 'What', why: 'Why', when: 'When', check: 'Check', windows: 'Windows', mac: 'macOS' },
+  notNeededIntro: { before: 'You do ', strong: 'not', after: ' need:' },
+  starterStep1Heading: 'Step 1 · Get the starter solution',
+  routingPanelEyebrow: 'Your choice · saved in team.md and repeated on every work request',
+  routingPanelHeading: 'Model routing (routing=): how each role\'s model is chosen',
+  depthPanelEyebrow: 'Your choice · per turn only, without changing models or skipping gates',
+  depthPanelHeading: 'Work depth (depth=): how much work runs on this turn',
+  haveTheseReadyHeading: 'Have these ready',
+  setupSectionCaption: 'Setup first · confirm · then the work request',
+  whatShouldHappenHeading: 'What should happen',
+  businessAnswersEyebrow: 'You play Northwind · only when the squad asks',
+  businessAnswersHeading: 'Business answers you can give',
+  businessAnswersIntro: 'Do not send these up front. Use them to answer the intake validator\'s questions consistently. Anything it does not ask about should appear in the documents as ASSUMPTION or OPEN.',
+  observeEyebrow: 'Observe · not part of the request',
+  observeHeading: 'What the squad should do on its own',
+  reviewKeyEyebrow: 'Review key',
+  reviewAndVerifyCaption: 'Review and verify',
+  stepsCaption: 'Steps',
+  evidenceEyebrow: 'Evidence',
+  evidenceHeading: 'Keep this',
+  checkpointEyebrow: 'Your checkpoint',
+  checkpointHeading: 'Can you show it?',
+  checkpointBrowserNote: 'Your own record, stored in this browser. It does not inspect your project.',
+  recoveryHeading: 'If you get stuck',
+  overviewHeroEyebrow: 'Hands-on workshop',
+  overviewHeroLatest: 'latest release',
+  overviewHeroTitleBefore: 'From one business case to ',
+  overviewHeroTitleEm: 'releases every team can build.',
+  overviewHeroLead: 'Re-imagine Northwind\'s opportunity with Squad Coach first, then let a product team turn the business case into traceable documents and numbered releases per track. Choose your tracks — Azure, .NET, Power Platform — equip each sub-squad with the new official packs, tune routing (including Economy) and work depth (Standard or Quick), and optionally connect your own agents through Squad Connector.',
+  overviewStartPart00: 'Start with Part 00 →',
+  overviewMetaHours: hours => ({ strong: `~${hours}`, sub: 'core session tailored to your choices' }),
+  overviewMetaTeams: (count, labels) => ({ strong: `${count} teams`, sub: `product · ${labels}` }),
+  overviewMetaReleases: { strong: 'Tagged releases', sub: 'r1, r2… per track, one Git tag each' },
+  overviewMetaZeroDeploy: { strong: '0 deployments', sub: 'nothing touches Azure or a tenant' },
+  journeyHeading: 'One product, independent & extensible tracks',
+  journeyBadge: 'Single squad → federation → connectors',
+  journeyProductTitle: 'Product',
+  journeyProductSub: 'Coach · Intake · BRD · PRD · MVE · tagged releases',
+  journeyAdoSpan: '03 · optional',
+  journeyAdoTitle: 'Azure DevOps',
+  journeyAdoSub: 'Publish with approval',
+  journeyTogetherTitle: 'Together',
+  journeyTogetherSub: 'Cross-team status · Document · Governance',
+  journeyConnectorSpan: '09 · optional',
+  journeyConnectorTitle: 'Connector',
+  journeyConnectorSub: 'Custom agents & orchestrators (add / replace)',
+  journeyFootNote: 'Each track team starts from its own releases after the federation is opened (Part 04) and never waits for another track. Do the tracks in any order; in a group session, split them across tables.',
+  agendaHeading: 'Agenda & realistic timing',
+  agendaSub: depth => `Adjusted for your tracks, scope & ${depth} depth`,
+  agendaCoreLiveTotal: 'Core live session (excl. optional)',
+  agendaWithOptionalTotal: optMinutes => `With optional labs (+${optMinutes} min)`,
+  formatHoursMinutes: mins => `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')} min`,
+  outcomeEyebrow: 'The real finish line',
+  outcomeHeading: 'Leave able to do it again.',
+  outcomeLead: 'You do not need a finished application. You need to show evidence, explain your decisions and resume the work later.',
+  outcomeFirstBullet: 'Every requirement traceable to its source, every backlog item tagged with its track and release.',
+  outcomeTrackBullets: {
+    azure: 'Migration blockers found in the code with the azure-cloud pack.',
+    dotnet: 'Pricing tests green and unchanged on .NET 10 with the dotnet pack.',
+    powerPlatform: 'Licences, data and approvals designed with the power-platform pack before anything is built.',
+  },
+  outcomeTeamsBullet: count => `${count} federated teams, one consistent picture, and Squad Connector ready for your own agents.`,
+  fictitiousStrong: 'Northwind is fictitious.',
+  fictitiousBody: 'Every document and line of code in the starter is synthetic and safe to share.',
+  feedbackHeading: 'Designed from participant feedback',
+  feedbackBullets: [
+    'All links, releases and plugin instructions target microsoft/hve-squad, with guided switching from pre-transfer installs.',
+    'Full English and French language support (UI, docs/fr/ glossary links, and copy-ready prompts).',
+    'Upfront Squad Coach discovery to re-imagine Northwind before locking the plan.',
+    'Official packs integrated into the sub-squads: azure-cloud, dotnet and power-platform.',
+    'Explicit work depth (standard vs quick) and Economy routing controls with full safeguard explanations.',
+    'Realistic time estimates separating setup, autopilot runs and human verification.',
+    'Optional hands-on lab for building custom agents or orchestrators and binding them with Squad Connector (Contract 1.1).',
+    'Review keys, Squad Doctor checks and terminal verification instead of trusting summaries.',
+  ],
+  hiddenPartHeading: num => `Part ${num} is hidden`,
+  hiddenPartBody: label => `You did not choose the ${label} track in Part 02, so its part is hidden from this guide. Tracks are independent: you can add it at any time, then ask the product team for its releases.`,
+  addTrackBtn: label => `Add the ${label} track`,
+  resourcesEyebrow: 'Keep moving, without guessing',
+  resourcesHeading: 'Resources',
+  resourcesLead: 'Templates, fixes for common problems, and the sources behind every step.',
+  templatesHeading: 'Templates',
+  templatesBody: 'Blank templates for your own notes. Keep the filled copies in your northwind-workshop folder.',
+  evidenceLogBtn: 'Evidence log',
+  evidenceLogFile: 'downloads/evidence-log.md',
+  whenWrongHeading: 'When something goes wrong',
+  sourcesHeading: 'Sources',
+  noticesNote: {
+    beforeLink: 'HVE Squad logo and documentation identity are MIT licensed (Microsoft Corporation); Manrope, Source Sans 3 and JetBrains Mono are SIL Open Font License fonts. ',
+    linkText: 'Third-party notices',
+  },
+  browserDataHeading: 'Your browser data',
+  browserDataBody: 'Progress and Session setup stay in this browser only. Nothing is sent anywhere. Export before switching computers.',
+  resetDataBtn: 'Reset this guide\'s data',
+  kindLabels: {
+    setup: 'Setup · no autopilot',
+    work: 'Work · autopilot',
+    question: 'Conversation / Builder · no autopilot',
+    plain: 'Default Copilot · no squad',
+    shell: 'Terminal',
+  },
+  squadLabels: {
+    productSquad: 'Product team name',
+    migrationSquad: 'Azure team name',
+    modernizationSquad: '.NET team name',
+    powerPlatformSquad: 'Power Platform team name',
+  },
+  publicationLabels: {
+    organization: 'Azure DevOps organization',
+    project: 'Project',
+    participant: 'Participant prefix',
+    documentTarget: 'Documentation location',
+    process: 'Process',
+    area: 'Area path',
+    iteration: 'Iteration path',
+  },
+  fieldHelp: {
+    productSquad: 'The name the product team receives at promotion (Part 04). Keep the suggestion unless the squad registers another.',
+    migrationSquad: 'Azure track (Part 05): names the team and targets its work request with squad="…".',
+    modernizationSquad: '.NET track (Part 06): names the team and targets its work request with squad="…".',
+    powerPlatformSquad: 'Power Platform track (Part 07): names the team and targets its work request with squad="…".',
+    organization: 'The part after dev.azure.com/ in your project URL. Not a token.',
+    project: 'The Azure DevOps project the facilitator prepared.',
+    participant: 'A short unique prefix for your work-item titles, e.g. "AB-".',
+    documentTarget: 'Where the documents go: a repository path or Wiki page agreed with the facilitator.',
+    process: 'Optional. Agile, Scrum or Basic. Leave empty and the squad reads it from the project.',
+    area: 'Optional. Leave empty to use the project default.',
+    iteration: 'Optional. Leave empty to use the project default.',
+  },
+  squadNameEmptyError: 'Enter the registered team name.',
+  squadNameFormatError: 'Use lowercase letters, digits and hyphens, starting with a letter or digit.',
+  blockerConfirmSetup: title => `Confirm the setup step "${title}" first.`,
+  blockerCheckpoint: (num, text) => `Part ${num} checkpoint: "${text}"`,
+  blockerSessionSetupNeeds: fields => `Session setup needs: ${fields}.`,
+  publicationDetailsHeader: 'Our Azure DevOps details:',
+  plainAgentName: 'Default Copilot agent',
+  plainAgentInstruction: 'Use the default Copilot agent: do not select a squad agent for this question.',
+  vscodeAgentInstruction: name => `In VS Code Copilot Chat, choose ${name} in the agents dropdown, then paste the message.`,
+  cliAgentInstruction: (name, id) => `In Copilot CLI, type /agent and choose ${name} (it may show as ${id}).`,
+  appAgentInstruction: (name, id) => `In the Copilot App, open the agent list and choose ${name} (it may show as ${id}).`,
+  storageReadError: msg => `Saved progress could not be read, so saving is paused to protect it. ${msg}`,
+  storageWriteError: msg => `Progress could not be saved in this browser. Export it before leaving. ${msg}`,
+}
+
+export const englishContent: WorkshopLocaleContent = {
+  locale: 'en',
+  docsUrl,
+  conceptsUrl,
+  tracks,
+  trackNote,
+  trackModeOptions,
+  scopeOptions,
+  routingOptions,
+  routingNote,
+  depthOptions,
+  depthNote,
+  glossary,
+  modeRule,
+  modelGuidance,
+  studioNote,
+  observationNote,
+  readFirst,
+  clientAdvice,
+  newConversation,
+  lifecycleExplainers,
+  prerequisites,
+  notNeeded,
+  pwshNote,
+  installation,
+  readyScript,
+  doctorCheck,
+  readinessQuestion,
+  coachQuestion,
+  agenda,
+  lessons,
+  troubleshooting,
+  sources,
+  ui: englishUi,
+}
+
+export const contentByLocale = (locale: Locale = 'en'): WorkshopLocaleContent =>
+  locale === 'fr' ? frenchContent : englishContent
+

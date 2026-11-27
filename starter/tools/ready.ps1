@@ -51,12 +51,12 @@ if ($copilot) {
         if (-not $squadMatch.Success) {
             Add-Result 'HVE Squad plugin' 'CLI client only' 'UNVERIFIED' 'Could not read the hve-squad version. Check copilot plugin list; see guide, Part 00, step 3.'
         } elseif ($squadMatch.Groups[1].Value -ne '{{HVE_SQUAD_VERSION}}') {
-            Add-Result 'HVE Squad plugin' 'CLI client only' 'WRONG VERSION' "hve-squad v$($squadMatch.Groups[1].Value) - the guide is built for {{HVE_SQUAD_VERSION}}. Update: see guide, Part 00, step 3"
+            Add-Result 'HVE Squad plugin' 'CLI client only' 'WRONG VERSION' "hve-squad v$($squadMatch.Groups[1].Value) - the guide is built for {{HVE_SQUAD_VERSION}}. Update from microsoft/hve-squad#plugin (replace Peter-N91/hve-squad#plugin if older): see guide, Part 00, step 3"
         } else {
             Add-Result 'HVE Squad plugin' 'CLI client only' 'OK' 'hve-squad@hve-squad v{{HVE_SQUAD_VERSION}} installed (HVE Core bundled)'
         }
     }
-    else { Add-Result 'HVE Squad plugin' 'CLI client only' 'MISSING' 'Install hve-squad@hve-squad from Peter-N91/hve-squad#plugin. See guide, Part 00, step 3.' }
+    else { Add-Result 'HVE Squad plugin' 'CLI client only' 'MISSING' 'Install hve-squad@hve-squad from microsoft/hve-squad#plugin. See guide, Part 00, step 3.' }
 } else {
     Add-Result 'GitHub Copilot CLI' 'CLI client only' 'NOT FOUND' 'Skip if you use the Copilot App or VS Code. Install: winget install GitHub.Copilot'
 }
@@ -102,13 +102,13 @@ if ($dot) { Add-Result 'Graphviz' 'Azure track' 'OK' $dot }
 elseif (Test-Path -LiteralPath 'C:\Program Files\Graphviz\bin\dot.exe') { Add-Result 'Graphviz' 'Azure track' 'NOT ON PATH' "winget does not add it. Run: [Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';C:\Program Files\Graphviz\bin', 'User'), then restart the terminal and your Copilot client" }
 else { Add-Result 'Graphviz' 'Azure track' 'MISSING' 'Install (elevated): winget install --id Graphviz.Graphviz -e, then run this check again' }
 
-# APM CLI - repository-local fallback or consented external pack resources (Part 07)
+# APM CLI - repository-local fallback or consented external pack resources (Parts 05-07)
 $apm = Get-FirstLine 'apm' @('--version')
 if ($apm) {
-    if ($apm -match '0\.29\.0') { Add-Result 'APM CLI' 'APM fallback, PP track' 'OK' $apm }
-    else { Add-Result 'APM CLI' 'APM fallback, PP track' 'WRONG VERSION' "$apm - the workshop needs exactly 0.29.0 for APM only" }
+    if ($apm -match '0\.29\.0') { Add-Result 'APM CLI' 'Pack skills / APM' 'OK' $apm }
+    else { Add-Result 'APM CLI' 'Pack skills / APM' 'WRONG VERSION' "$apm - the workshop needs exactly 0.29.0 for optional pack skills or APM fallback" }
 } else {
-    Add-Result 'APM CLI' 'APM fallback, PP track' 'NOT FOUND' 'Only for the repository-local APM fallback or optional external pack resources. The plugin and local Primaries do not need it.'
+    Add-Result 'APM CLI' 'Pack skills / APM' 'NOT FOUND' 'Only for optional pack skills/Alternates (azure-cloud, dotnet, power-platform) or the APM fallback. The plugin and bundled roles do not need it.'
 }
 
 $results | Format-Table -AutoSize -Wrap

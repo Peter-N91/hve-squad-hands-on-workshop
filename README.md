@@ -1,26 +1,37 @@
 # HVE Squad hands-on workshop
 
-An interactive, self-contained workshop guide for [HVE Squad](https://peter-n91.github.io/hve-squad/),
-always built for the latest stable HVE Squad release. Participants work in one repository for a
-fictitious customer, **Northwind Traders**, whose business case is split into three business
-areas, each owned by a **delivery track**:
+An interactive, self-contained bilingual (**English / Français**) workshop guide for
+[HVE Squad](https://microsoft.github.io/hve-squad/), always built for the latest stable
+`microsoft/hve-squad` release. Participants work in one repository for a fictitious customer,
+**Northwind Traders**, whose business case is split into three business areas, each owned by a
+**delivery track**:
 
-1. a **product** squad turns the business case into a BRD, a PRD, Minimum Viable Experiments and a
+1. **Squad Coach** helps participants inspect the starter repository and re-imagine what is there
+   before locking a plan, and participants pick their **model routing** (`off`, `ranked`,
+   `economy`, `manual`) and **work depth** (`standard`, `quick`);
+2. a **product** squad turns the business case into a BRD, a PRD, Minimum Viable Experiments and a
    backlog where every item carries a track tag and, once planned, a release tag. Each chosen track
    gets **numbered releases** (`r1`, `r2`…), each marked with a Git tag (`product/<track>-r<n>`), so
    the releases stay identifiable when the backlog is published to Azure DevOps, GitHub or Jira.
    At the start of this part participants choose what to build — all tracks, one track or selected
    tracks — and whether the product covers the whole case or only the business areas of those tracks;
-2. optionally, the releases are published to **Azure DevOps**;
-3. the squad is promoted to a federation;
-4. one team per chosen track builds from its own release, independently of the others:
-   - **Azure** (BA-01) plans the migration of Order Desk to Azure, with HLD and LLD diagrams drawn
-     with the Python `diagrams` library (0.25.1+, latest Azure icons) and Graphviz;
-   - **.NET** (BA-02) upgrades Order Desk from .NET Framework 4.8 to .NET 10;
-   - **Power Platform** (BA-03) designs a delivery-claims solution with the `power-platform` pack.
+3. optionally, the releases are published to **Azure DevOps**;
+4. the squad is promoted to a federation;
+5. one team per chosen track builds from its own release, independently of the others, using the
+   official technology packs:
+   - **Azure** (BA-01) plans the migration of Order Desk to Azure with the `azure-cloud` pack, with
+     HLD and LLD diagrams drawn with the Python `diagrams` library (0.25.1+, latest Azure icons)
+     and Graphviz;
+   - **.NET** (BA-02) upgrades Order Desk from .NET Framework 4.8 to .NET 10 with the `dotnet` pack;
+   - **Power Platform** (BA-03) designs a delivery-claims solution with the `power-platform` pack;
+6. participants bring every team together (`Squad Federation Coordinator`, plus optional
+   `Squad Document` and `Squad Governance Report`), and can optionally extend a squad with their own
+   custom agent or multi-agent orchestrator via **Squad Connector** (Contract 1.1, `add` or
+   `replace`).
 
 A track the participant does not choose is hidden from the guide. Part numbers stay stable, so a
-facilitator can split tracks across tables in a group session.
+facilitator can split tracks across tables in a group session, and estimated durations adapt to the
+chosen tracks, scope and work depth.
 
 Published at <https://peter-n91.github.io/hve-squad-hands-on-workshop/>.
 
@@ -28,15 +39,16 @@ Published at <https://peter-n91.github.io/hve-squad-hands-on-workshop/>.
 
 | Path | Contents |
 |---|---|
-| `src/content.ts` | The delivery tracks, and every lesson, request, review key, prerequisite, troubleshooting entry and the glossary that links each term to the HVE Squad docs. Edit this to change the workshop. |
-| `src/state.ts` | Browser progress, Session setup (tracks, scope, team names), setup-chain locking and the pure request renderer. Copilot CLI, App and VS Code get the same message; only the way you select the agent differs. |
-| `src/hve-squad-release.ts` | Generated: the latest stable HVE Squad release the guide targets. |
-| `scripts/hve-squad-release.mjs` | Asks GitHub for the latest stable `Peter-N91/hve-squad` release and regenerates `src/hve-squad-release.ts`. Runs before `dev`, `build` and the starter; keeps the committed value when offline or with `HVE_SQUAD_RELEASE_OFFLINE=1`. CI sets `HVE_SQUAD_RELEASE_REQUIRED=1` so a failed lookup cannot publish a stale guide. |
+| `src/types.ts` | Shared types, URLs (`microsoft/hve-squad` & `microsoft.github.io/hve-squad`) and release helpers. |
+| `src/content.ts`, `src/content.fr.ts` | Complete English and French workshop content: delivery tracks, lessons, copy-ready requests, review keys, prerequisites, troubleshooting and glossary links (`docs/` and `docs/fr/`). |
+| `src/state.ts` | Browser progress, Session setup (language, client, routing, depth, tracks, scope, team names), dynamic time estimates, setup-chain locking and the pure request renderer. |
+| `src/hve-squad-release.ts` | Generated: the latest stable `microsoft/hve-squad` release the guide targets. |
+| `scripts/hve-squad-release.mjs` | Asks GitHub for the latest stable `microsoft/hve-squad` release and regenerates `src/hve-squad-release.ts`. Runs before `dev`, `build` and the starter; keeps the committed value when offline or with `HVE_SQUAD_RELEASE_OFFLINE=1`. CI sets `HVE_SQUAD_RELEASE_REQUIRED=1` so a failed lookup cannot publish a stale guide. |
 | `src/starter.ts` | The one-button starter: writes the folder through the File System Access API, or falls back to a zip download. |
 | `src/App.tsx`, `src/index.css` | The guide UI, using the HVE Squad documentation identity (tokens, gradient, Manrope / Source Sans 3 / JetBrains Mono). |
 | `starter/` | The participant solution: knowledge-docs, the legacy Order Desk solution (28 MSTest v1 tests), database scripts and readiness scripts. |
 | `scripts/build-starter.mjs` | Packages `starter/` into `public/starter/manifest.json` and `northwind-workshop.zip` (no dependencies), replacing `{{HVE_SQUAD_VERSION}}` and `{{HVE_SQUAD_MINOR}}` with the targeted release. Runs before `dev` and `build`. |
-| `tests/workshop.test.mjs` | Content, renderer, progress and starter integrity tests, including cross-checks that every identifier and file the guide cites exists in the starter. |
+| `tests/workshop.test.mjs` | Content, bilingual parity, renderer, routing/depth, progress and starter integrity tests, including cross-checks that every identifier and file the guide cites exists in the starter. |
 | `tests/readiness.test.mjs` | Runs the packaged readiness scripts with stubbed tools, covering the self-contained plugin, retired installations, version mismatches and failed or unreadable version checks. |
 
 ## Develop
@@ -67,9 +79,9 @@ Lesson and prompt text can adapt to the participant's choices with `{trackList}`
 ## Link terms to the HVE Squad docs
 
 The guide never explains a squad term on its own: it links it to the section of the HVE Squad
-documentation that does (mostly the Concepts page, `docs/concepts.html` in `Peter-N91/hve-squad`).
+documentation that does (`docs/concepts.html` and `docs/fr/concepts.html` in `microsoft/hve-squad`).
 
-- `glossary` in `src/content.ts` maps a term id to its label, one-sentence meaning and docs URL. The anchors
+- `glossary` in `src/content.ts` and `src/content.fr.ts` maps a term id to its label, one-sentence meaning and docs URL. The anchors
   are heading ids on the docs pages: when you rename one there, change it here.
 - In lesson, step, hint and FAQ text, write `[label](term:id)` to turn words into a link. Keep it out of
   anything a participant pastes: messages stay plain text, and a test fails if the markup leaks into one.
@@ -86,14 +98,16 @@ limits), and the install commands, prerequisites, links and the starter's readin
 read it. Commit the regenerated file when it changes. The publish workflow also runs daily and on a
 `hve-squad-release` repository dispatch, so the published guide follows new releases.
 
-All three clients use the stable, self-contained plugin from `Peter-N91/hve-squad#plugin`
+All three clients use the stable, self-contained plugin from `microsoft/hve-squad#plugin`
 (`hve-squad@hve-squad` in the CLI). It bundles the HVE Core commit pinned by that release.
-The guide includes migration from the retired `hve-squad-plugin` two-plugin marketplace;
-APM remains only a repository-local VS Code fallback or a way to install optional pack agents.
-Both readiness scripts require the exact targeted plugin version, flag legacy or mixed
-installations, and never report an unreadable version as OK. App and VS Code installs must be
-checked within those clients. Existing participants must download a fresh starter to get updated
-readiness scripts.
+The guide includes switching instructions from pre-transfer `Peter-N91/hve-squad#plugin` installs
+as well as migration from the retired `hve-squad-plugin` two-plugin marketplace; APM (`v0.29.0`)
+remains only a repository-local VS Code fallback or an opt-in installer for optional external pack
+skills/Alternates (`azure-cloud`, `dotnet`, `power-platform`). Both readiness scripts require the
+exact targeted plugin version, flag legacy or mixed installations, and never report an unreadable
+version as OK. App and VS Code installs must be checked within those clients (and verified with
+`Squad Doctor`). Existing participants must download a fresh starter to get updated readiness
+scripts.
 
 ## Change the starter
 
