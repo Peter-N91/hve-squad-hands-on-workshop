@@ -38,9 +38,9 @@ if command -v copilot >/dev/null 2>&1; then
     case "$version" in
       '') row "HVE Squad plugin" "CLI client only" "UNVERIFIED" "Could not read the hve-squad version. Check copilot plugin list (Part 00, step 3)." ;;
       {{HVE_SQUAD_VERSION}}) row "HVE Squad plugin" "CLI client only" "OK" "hve-squad@hve-squad v$version installed (HVE Core bundled)" ;;
-      *) row "HVE Squad plugin" "CLI client only" "WRONG VERSION" "hve-squad v$version - the guide is built for {{HVE_SQUAD_VERSION}} (Part 00, step 3)" ;;
+      *) row "HVE Squad plugin" "CLI client only" "WRONG VERSION" "hve-squad v$version - the guide is built for {{HVE_SQUAD_VERSION}}. Update from microsoft/hve-squad#plugin (Part 00, step 3)" ;;
     esac
-  else row "HVE Squad plugin" "CLI client only" "MISSING" "Install hve-squad@hve-squad from Peter-N91/hve-squad#plugin (Part 00, step 3)."; fi
+  else row "HVE Squad plugin" "CLI client only" "MISSING" "Install hve-squad@hve-squad from microsoft/hve-squad#plugin (Part 00, step 3)."; fi
 else
   row "GitHub Copilot CLI" "CLI client only" "NOT FOUND" "Skip if you use the App or VS Code. Install: brew install --cask copilot-cli"
 fi
@@ -68,10 +68,10 @@ else row "Graphviz" "Azure track" "MISSING" "Install: brew install graphviz"; fi
 
 if command -v apm >/dev/null 2>&1; then
   v="$(first apm --version)"
-  if echo "$v" | grep -q '0\.29\.0'; then row "APM CLI" "APM fallback, PP track" "OK" "$v"
-  else row "APM CLI" "APM fallback, PP track" "WRONG VERSION" "$v - the workshop needs exactly 0.29.0 for APM only"; fi
+  if echo "$v" | grep -q '0\.29\.0'; then row "APM CLI" "Pack skills / APM" "OK" "$v"
+  else row "APM CLI" "Pack skills / APM" "WRONG VERSION" "$v - the workshop needs exactly 0.29.0 for optional pack skills or APM fallback"; fi
 else
-  row "APM CLI" "APM fallback, PP track" "NOT FOUND" "Only for the repository-local APM fallback or optional external pack resources. The plugin and local Primaries do not need it."
+  row "APM CLI" "Pack skills / APM" "NOT FOUND" "Only for optional pack skills/Alternates (azure-cloud, dotnet, power-platform) or the APM fallback. The plugin and bundled roles do not need it."
 fi
 
 echo

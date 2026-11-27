@@ -32,7 +32,8 @@ Each track's team builds from its own releases and never waits for another track
 ## First steps
 
 1. Read the HVE Squad core ideas (about 10 minutes):
-   <https://peter-n91.github.io/hve-squad/concepts.html>. The squad uses a few words from its
+   <https://microsoft.github.io/hve-squad/concepts.html> (French:
+   <https://microsoft.github.io/hve-squad/fr/concepts.html>). The squad uses a few words from its
    first message (init, promote, team, federation, profile, pack, autopilot), and the guide links
    each one back to that page.
 2. Open a terminal **in this folder**.
@@ -42,10 +43,13 @@ Each track's team builds from its own releases and never waits for another track
 4. Fix anything marked **MISSING**, **LEGACY**, **WRONG VERSION**, **UNVERIFIED** or **CHECK FAILED**
    that the guide says you need for the parts you will do. The CLI check expects the single
    `hve-squad@hve-squad` plugin at **v{{HVE_SQUAD_VERSION}}** from
-   `Peter-N91/hve-squad#plugin`, with HVE Core bundled. Remove the retired two-plugin installation
-   before migrating. App and VS Code plugin versions must be checked inside their own client;
-   the CLI cannot verify them. APM is only needed for the repository-local fallback or optional
-   external Power Platform Alternates or optional registered skills; local Primary agents are bundled.
+   `microsoft/hve-squad#plugin`, with HVE Core bundled. If you previously installed from
+   `Peter-N91/hve-squad#plugin` or the retired two-plugin `hve-squad-plugin` marketplace, remove
+   that old marketplace entry first so updates come from `microsoft/hve-squad#plugin` (see Part 00,
+   step 3 of the guide). App and VS Code plugin versions must be checked inside their own client;
+   the CLI cannot verify them. APM (`v0.29.0`) is only needed for the repository-local fallback or
+   when you consent to installing optional external skills/Alternates from the `azure-cloud`,
+   `dotnet` or `power-platform` packs; bundled local agents do not need it.
 5. Open this folder in your Copilot client and continue with Part 01 of the guide.
 
 If you saved this folder for an older workshop, download a fresh starter from the guide to get

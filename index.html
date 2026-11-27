@@ -9,10 +9,18 @@
     <script>
       (() => {
         let saved = null
-        try { saved = localStorage.getItem('hve-squad-hands-on-theme') } catch { /* storage unavailable */ }
-        const param = new URLSearchParams(window.location.search).get('theme')
+        let savedLang = null
+        try {
+          saved = localStorage.getItem('hve-squad-hands-on-theme')
+          savedLang = localStorage.getItem('hve-squad-hands-on-lang')
+        } catch { /* storage unavailable */ }
+        const params = new URLSearchParams(window.location.search)
+        const param = params.get('theme')
         const pick = [param, saved].find(value => value === 'light' || value === 'dark')
         document.documentElement.dataset.theme = pick ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        const langParam = params.get('lang')
+        const langPick = [langParam, savedLang].find(value => value === 'en' || value === 'fr')
+        document.documentElement.lang = langPick ?? (navigator.language && navigator.language.toLowerCase().startsWith('fr') ? 'fr' : 'en')
       })()
     </script>
   </head>

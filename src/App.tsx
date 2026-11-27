@@ -1,47 +1,65 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  apmCliReleaseUrl, apmCliVersion, clientAdvice, conceptsUrl, docsUrl, installation, lessons, lifecycleExplainers, modeRule, modelGuidance, newConversation, readFirst, releaseName,
-  notNeeded, observationNote, pluginId, pluginMarketplace, pwshNote, routingNote, routingOptions, scopeOptions, sources, squadReleaseUrl, squadVersion, startHereTerms,
-  trackModeOptions, trackNote, tracks, troubleshooting,
-} from './content'
-import type { Lesson, LessonStep, LifecycleStep, Prompt, SquadKey, Term } from './content'
+  apmCliReleaseUrl, apmCliVersion, contentByLocale, legacyRepoMarketplace, localeLabels, locales,
+  pluginId, pluginMarketplace, releaseName, squadReleaseUrl, squadVersion, startHereTerms,
+} from './content.ts'
+import type { Lesson, LessonStep, LifecycleStep, Locale, Prompt, SquadKey, Term } from './content.ts'
 import {
-  agentSelection, chosenTracks, clientLabels, clients, decodeState, defaults, fillNames, lessonCheckId, missingSetup, newConversationHow, nextClient, progress,
-  promptBlockers, promptTerms, publicationFields, publicationLabels, renderPrompt, setupCheckId, squadLabels, squadNameError,
-  addTrack, pickTrack, setTrackMode, storageKey, termById, termParts, themeKey, toggleCheck, visibleAgenda, visibleAnswers, visibleLessons, visiblePrerequisites,
-} from './state'
-import type { PublicationField, SavedState, Settings } from './state'
-import { canWriteFolders, downloadZip, getStarter, starterZipUrl } from './starter'
+  addTrack, agendaMinutes, agentSelection, chosenTracks, clientLabels, clients, decodeState, defaults, fillNames,
+  langKey, lessonCheckId, lessonMinutes, missingSetup, newConversationHow, nextClient, pickTrack, progress,
+  promptBlockers, promptTerms, publicationFields, renderPrompt, sessionTotals, setTrackMode, setupCheckId,
+  squadNameError, storageKey, termById, termParts, themeKey, toggleCheck, visibleAgenda, visibleAnswers,
+  visibleLessons, visiblePrerequisites,
+} from './state.ts'
+import type { SavedState, Settings } from './state.ts'
+import { canWriteFolders, downloadZip, getStarter, starterZipUrl } from './starter.ts'
 
 const base = import.meta.env.BASE_URL
-const kindLabels: Record<Prompt['kind'], string> = {
-  setup: 'Setup · no autopilot', work: 'Work · autopilot', question: 'Conversation · no autopilot', plain: 'Default Copilot · no squad', shell: 'Terminal',
-}
-const fieldHelp: Record<PublicationField | SquadKey, string> = {
-  productSquad: 'The name the product team receives at promotion (Part 04). Keep the suggestion unless the squad registers another.',
-  migrationSquad: 'Azure track (Part 05): names the team and targets its work request with squad="…".',
-  modernizationSquad: '.NET track (Part 06): names the team and targets its work request with squad="…".',
-  powerPlatformSquad: 'Power Platform track (Part 07): names the team and targets its work request with squad="…".',
-  organization: 'The part after dev.azure.com/ in your project URL. Not a token.',
-  project: 'The Azure DevOps project the facilitator prepared.',
-  participant: 'A short unique prefix for your work-item titles, e.g. "AB-".',
-  documentTarget: 'Where the documents go: a repository path or Wiki page agreed with the facilitator.',
-  process: 'Optional. Agile, Scrum or Basic. Leave empty and the squad reads it from the project.',
-  area: 'Optional. Leave empty to use the project default.',
-  iteration: 'Optional. Leave empty to use the project default.',
+
+function detectInitialLocale(hasSavedLanguage: boolean, savedLanguage: Locale): Locale {
+  try {
+    const param = new URLSearchParams(window.location.search).get('lang')
+    if (param === 'en' || param === 'fr') return param
+  } catch { /* ignore URL errors */ }
+  if (hasSavedLanguage) return savedLanguage
+  try {
+    const stored = localStorage.getItem(langKey)
+    if (stored === 'en' || stored === 'fr') return stored
+  } catch { /* storage unavailable */ }
+  if (typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('fr')) return 'fr'
+  return 'en'
 }
 
 function readInitial() {
   try {
-    return { data: decodeState(localStorage.getItem(storageKey)), error: '' }
+    const raw = localStorage.getItem(storageKey)
+    let hasSavedLanguage = false
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { settings?: { language?: unknown } }
+        hasSavedLanguage = parsed?.settings?.language === 'en' || parsed?.settings?.language === 'fr'
+      } catch { /* decodeState handles invalid JSON below */ }
+    }
+    const decoded = decodeState(raw)
+    const language = detectInitialLocale(hasSavedLanguage, decoded.settings.language)
+    return { data: { ...decoded, settings: { ...decoded.settings, language } }, error: '' }
   } catch (error) {
+    const language = detectInitialLocale(false, 'en')
+    const ui = contentByLocale(language).ui
     return {
-      data: { schema: 1, checked: [], settings: { ...defaults } } satisfies SavedState,
-      error: `Saved progress could not be read, so saving is paused to protect it. ${error instanceof Error ? error.message : String(error)}`,
+      data: { schema: 1, checked: [], settings: { ...defaults, tracks: [...defaults.tracks], language } } satisfies SavedState,
+      error: ui.storageReadError(error instanceof Error ? error.message : String(error)),
     }
   }
 }
+
+function syncDocumentLocale(lang: Locale, title: string, description: string) {
+  document.documentElement.setAttribute('lang', lang)
+  document.title = title
+  document.querySelector('meta[name="description"]')?.setAttribute('content', description)
+}
+
 function download(name: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }))
   const link = document.createElement('a')
@@ -67,6 +85,11 @@ function App() {
   const main = useRef<HTMLElement>(null)
   const resetDialog = useRef<HTMLDialogElement>(null)
 
+  const settings = saved.settings
+  const lang = settings.language
+  const bundle = contentByLocale(lang)
+  const ui = bundle.ui
+
   useEffect(() => {
     const handle = () => { setPage(window.location.hash.slice(1) || 'overview'); setMenuOpen(false); setStatus('') }
     window.addEventListener('hashchange', handle)
@@ -84,19 +107,22 @@ function App() {
     document.documentElement.dataset.theme = theme
     try { localStorage.setItem(themeKey, theme) } catch { /* theme preference is optional */ }
   }, [theme])
+  useEffect(() => {
+    syncDocumentLocale(lang, ui.pageTitle, ui.metaDescription)
+    try { localStorage.setItem(langKey, lang) } catch { /* language preference is optional */ }
+  }, [lang, ui.metaDescription, ui.pageTitle])
 
-  const settings = saved.settings
   const vscode = settings.experience === 'vscode'
   const stats = progress(saved.checked, settings)
   const visible = visibleLessons(settings)
   const active = visible.find(lesson => lesson.id === page)
-  const hiddenLesson = active ? undefined : lessons.find(lesson => lesson.id === page)
+  const hiddenLesson = active ? undefined : bundle.lessons.find(lesson => lesson.id === page)
   const chosen = chosenTracks(settings)
   const tx = (text: string) => fillNames(text, settings)
   const txList = (items: string[]) => items.map(tx).filter(item => item.trim())
   /** Turns [label](term:id) into a link to the docs section that explains the term. */
-  const rich = (text: string): ReactNode => termParts(text).map((part, index) => typeof part === 'string' ? part
-    : <a key={index} className="term" href={part.term.url} target="_blank" rel="noreferrer" title={`${part.term.meaning} Opens the HVE Squad docs.`}>{part.label}</a>)
+  const rich = (text: string): ReactNode => termParts(text, lang).map((part, index) => typeof part === 'string' ? part
+    : <a key={index} className="term" href={part.term.url} target="_blank" rel="noreferrer" title={`${part.term.meaning} ${ui.opensDocsSuffix}`}>{part.label}</a>)
   const tr = (text: string) => rich(tx(text))
 
   function persist(next: SavedState) {
@@ -105,7 +131,7 @@ function App() {
     try {
       localStorage.setItem(storageKey, JSON.stringify(next))
     } catch (error) {
-      setStorageError(`Progress could not be saved in this browser. Export it before leaving. ${error instanceof Error ? error.message : String(error)}`)
+      setStorageError(contentByLocale(next.settings.language).ui.storageWriteError(error instanceof Error ? error.message : String(error)))
     }
   }
   const updateSetting = <K extends keyof Settings>(key: K, value: Settings[K]) => persist({ ...saved, settings: { ...settings, [key]: value } })
@@ -114,9 +140,9 @@ function App() {
   async function copy(text: string) {
     try {
       await navigator.clipboard.writeText(text)
-      setStatus('Copied. Paste it into your client in the northwind-workshop folder.')
+      setStatus(ui.copiedStatus)
     } catch {
-      setStatus('The clipboard is not available here. Select the text and copy it manually.')
+      setStatus(ui.clipboardUnavailableStatus)
     }
   }
   async function fetchStarter() {
@@ -124,66 +150,86 @@ function App() {
     setStarterMessage('')
     try {
       const result = await getStarter()
-      if (result.kind === 'folder') setStarterMessage(`Done: ${result.count} files written to ${result.location}. Next: open a terminal in that folder and run the readiness check.`)
-      else if (result.kind === 'zip') setStarterMessage('Your browser cannot write to folders, so the starter was downloaded as northwind-workshop.zip. Extract it where you want the workshop folder.')
-      else if (result.kind === 'exists') setStarterMessage(`${result.location} already exists. Nothing was overwritten: choose another location or rename the existing folder.`)
-      else setStarterMessage('No folder was chosen. Nothing was written.')
+      if (result.kind === 'folder') setStarterMessage(ui.starterFolderDone(result.count, result.location))
+      else if (result.kind === 'zip') setStarterMessage(ui.starterZipDone)
+      else if (result.kind === 'exists') setStarterMessage(ui.starterExists(result.location))
+      else setStarterMessage(ui.starterCancelled)
     } catch (error) {
-      setStarterMessage(`Writing the folder failed (${error instanceof Error ? error.message : String(error)}). Download the zip instead.`)
+      setStarterMessage(ui.starterFailed(error instanceof Error ? error.message : String(error)))
     } finally {
       setStarterBusy(false)
     }
   }
 
   function routingPicker(context: string) {
-    const current = routingOptions.find(option => option.value === settings.routing) ?? routingOptions[0]
+    const current = bundle.routingOptions.find(option => option.value === settings.routing) ?? bundle.routingOptions[0]
     return <div className="routing-picker">
-      <span className="routing-label">Model routing</span>
-      <div className="segmented" role="radiogroup" aria-label={`Model routing (${context})`}>
-        {routingOptions.map(option => <button type="button" role="radio" key={option.value} aria-checked={settings.routing === option.value}
+      <span className="routing-label">{ui.routingLabel}</span>
+      <div className="segmented" role="radiogroup" aria-label={ui.routingAria(context)}>
+        {bundle.routingOptions.map(option => <button type="button" role="radio" key={option.value} aria-checked={settings.routing === option.value}
           title={option.detail} onClick={() => updateSetting('routing', option.value)}>{option.label}</button>)}
       </div>
       <span className="routing-summary"><code>routing="{current.value}"</code> — {current.summary}</span>
+      {settings.routing === 'economy' && <span className="economy-hint">{ui.economyConsentHint}</span>}
+    </div>
+  }
+
+  function depthPicker(context: string) {
+    const current = bundle.depthOptions.find(option => option.value === settings.depth) ?? bundle.depthOptions[0]
+    return <div className="routing-picker depth-picker">
+      <span className="routing-label">{ui.depthLabel}</span>
+      <div className="segmented" role="radiogroup" aria-label={ui.depthAria(context)}>
+        {bundle.depthOptions.map(option => <button type="button" role="radio" key={option.value} aria-checked={settings.depth === option.value}
+          title={option.detail} onClick={() => updateSetting('depth', option.value)}>{option.label}</button>)}
+      </div>
+      <span className="routing-summary"><code>depth="{current.value}"</code> — {current.summary}</span>
+    </div>
+  }
+
+  function executionControls(context: string) {
+    return <div className="execution-controls">
+      {routingPicker(context)}
+      {depthPicker(context)}
     </div>
   }
 
   function trackPicker(context: string, compact = false) {
-    const mode = trackModeOptions.find(option => option.value === settings.trackMode) ?? trackModeOptions[0]
-    return <section className={compact ? 'track-picker compact' : 'panel track-picker'} aria-label={`What you build (${context})`}>
-      {!compact && <span className="eyebrow">Your choice · shapes the product request and hides the tracks you do not build</span>}
-      <h2>{compact ? 'What you build · Parts 05–07' : 'Choose what you build'}</h2>
+    const mode = bundle.trackModeOptions.find(option => option.value === settings.trackMode) ?? bundle.trackModeOptions[0]
+    return <section className={compact ? 'track-picker compact' : 'panel track-picker'} aria-label={ui.whatYouBuildAria(context)}>
+      {!compact && <span className="eyebrow">{ui.whatYouBuildEyebrow}</span>}
+      <h2>{compact ? ui.whatYouBuildCompactHeading : ui.whatYouBuildHeading}</h2>
       <div className="routing-picker">
-        <span className="routing-label">Tracks</span>
-        <div className="segmented" role="radiogroup" aria-label={`Tracks to build (${context})`}>
-          {trackModeOptions.map(option => <button type="button" role="radio" key={option.value} aria-checked={settings.trackMode === option.value}
+        <span className="routing-label">{ui.tracksLabel}</span>
+        <div className="segmented" role="radiogroup" aria-label={ui.tracksToBuildAria(context)}>
+          {bundle.trackModeOptions.map(option => <button type="button" role="radio" key={option.value} aria-checked={settings.trackMode === option.value}
             title={option.summary} onClick={() => updateSettings(setTrackMode(settings, option.value))}>{option.label}</button>)}
         </div>
         <span className="routing-summary">{mode.summary}</span>
       </div>
-      <div className="track-options" role={settings.trackMode === 'one' ? 'radiogroup' : 'group'} aria-label={`Delivery tracks (${context})`}>
-        {tracks.map(track => {
+      <div className="track-options" role={settings.trackMode === 'one' ? 'radiogroup' : 'group'} aria-label={ui.deliveryTracksAria(context)}>
+        {bundle.tracks.map(track => {
           const on = settings.tracks.includes(track.id)
           const locked = settings.trackMode === 'all' || (settings.trackMode === 'selected' && on && settings.tracks.length === 1)
-          const lesson = lessons.find(item => item.id === track.lessonId)
+          const lesson = bundle.lessons.find(item => item.id === track.lessonId)
           return <label key={track.id} className={on ? 'track-option on' : 'track-option'}
-            title={settings.trackMode === 'all' ? 'Choose One track or Selected tracks to leave a track out.' : locked ? 'Keep at least one track: the product team needs releases to write.' : undefined}>
+            title={settings.trackMode === 'all' ? ui.trackLockedAllTitle : locked ? ui.trackLockedLastTitle : undefined}>
             <input type={settings.trackMode === 'one' ? 'radio' : 'checkbox'} name={`track-${context.replace(/\W+/g, '-')}`} checked={on} disabled={locked}
               onChange={() => updateSettings(pickTrack(settings, track.id))} />
-            <span><strong>{track.label}</strong><small>Part {lesson?.number} · {track.area} {track.areaName}</small>
+            <span><strong>{track.label}</strong><small>{ui.partPrefix} {lesson?.number} · {track.area} {track.areaName}</small>
               {!compact && <em>{track.summary}</em>}
               <code>{releaseName(track, 1)}, {releaseName(track, 2)}…</code></span>
           </label>
         })}
       </div>
       <div className="routing-picker scope-picker">
-        <span className="routing-label">Product scope</span>
-        <div className="segmented" role="radiogroup" aria-label={`Product scope (${context})`}>
-          {scopeOptions.map(option => <button type="button" role="radio" key={option.value} aria-checked={settings.scope === option.value}
+        <span className="routing-label">{ui.productScopeLabel}</span>
+        <div className="segmented" role="radiogroup" aria-label={ui.productScopeAria(context)}>
+          {bundle.scopeOptions.map(option => <button type="button" role="radio" key={option.value} aria-checked={settings.scope === option.value}
             title={option.detail} onClick={() => updateSetting('scope', option.value)}>{option.label}</button>)}
         </div>
-        <span className="routing-summary">{scopeOptions.find(option => option.value === settings.scope)?.summary}</span>
+        <span className="routing-summary">{bundle.scopeOptions.find(option => option.value === settings.scope)?.summary}</span>
       </div>
-      {!compact && <p className="small">{scopeOptions.find(option => option.value === settings.scope)?.detail} {trackNote}</p>}
+      {!compact && <p className="small">{bundle.scopeOptions.find(option => option.value === settings.scope)?.detail} {bundle.trackNote}</p>}
     </section>
   }
 
@@ -193,52 +239,52 @@ function App() {
 
   function termsTable(ids: string[]) {
     return <table className="terms-table">
-      <thead><tr><th>Term</th><th>In one sentence</th></tr></thead>
+      <thead><tr><th>{ui.termColumn}</th><th>{ui.inOneSentenceColumn}</th></tr></thead>
       <tbody>{ids.map(id => {
-        const term = termById(id)
+        const term = termById(id, lang)
         return <tr key={id}><td><a className="term" href={term.url} target="_blank" rel="noreferrer">{term.label}</a></td><td>{term.meaning}</td></tr>
       })}</tbody>
     </table>
   }
 
   function readFirstPanel(context: string) {
-    return <section className="panel read-first" aria-label={`${readFirst.title} (${context})`}>
-      <span className="eyebrow">{readFirst.eyebrow}</span>
-      <h2>{readFirst.title}</h2>
-      <p>{readFirst.body}</p>
-      <p><a className="button primary" href={conceptsUrl} target="_blank" rel="noreferrer">{readFirst.action} ↗</a></p>
+    return <section className="panel read-first" aria-label={`${bundle.readFirst.title} (${context})`}>
+      <span className="eyebrow">{bundle.readFirst.eyebrow}</span>
+      <h2>{bundle.readFirst.title}</h2>
+      <p>{bundle.readFirst.body}</p>
+      <p><a className="button primary" href={bundle.conceptsUrl} target="_blank" rel="noreferrer">{bundle.readFirst.action} ↗</a></p>
       {termsTable(startHereTerms)}
     </section>
   }
 
   function lifecycleExplainer(step: LifecycleStep) {
-    const info = step.request.lifecycle && lifecycleExplainers[step.request.lifecycle]
+    const info = step.request.lifecycle && bundle.lifecycleExplainers[step.request.lifecycle]
     if (!info) return null
     return <section className="does-box" aria-label={info.title}>
       <h3>{info.title}</h3>
       <div className="does-grid">
-        <div><strong className="yes">It does</strong><ul>{info.does.map(item => <li key={item}>{item}</li>)}</ul></div>
-        <div><strong className="no">It does not</strong><ul>{info.doesNot.map(item => <li key={item}>{item}</li>)}</ul></div>
+        <div><strong className="yes">{ui.doesLabel}</strong><ul>{info.does.map(item => <li key={item}>{item}</li>)}</ul></div>
+        <div><strong className="no">{ui.doesNotLabel}</strong><ul>{info.doesNot.map(item => <li key={item}>{item}</li>)}</ul></div>
       </div>
     </section>
   }
 
   function setupQuestions(step: LifecycleStep) {
     if (!step.questions?.length) return null
-    return <section className="questions" aria-label="What the coordinator will ask">
-      <h3>What the coordinator will ask — and what to answer here</h3>
-      <p className="small">Expect questions like these; the wording and the order vary. If an option is unclear, ask the coordinator to explain it instead of guessing.</p>
+    return <section className="questions" aria-label={ui.coordinatorQuestionsAria}>
+      <h3>{ui.coordinatorQuestionsHeading}</h3>
+      <p className="small">{ui.coordinatorQuestionsIntro}</p>
       <table><tbody>{step.questions.map(item => <tr key={item.ask}>
         <td>{item.ask}</td>
-        <td>{tx(item.answer)}{item.terms && <span className="term-links"> Read more: {termLinks(item.terms.map(termById))}</span>}</td>
+        <td>{tx(item.answer)}{item.terms && <span className="term-links"> {ui.readMoreLabel}: {termLinks(item.terms.map(id => termById(id, lang)))}</span>}</td>
       </tr>)}</tbody></table>
     </section>
   }
 
   function newConversationNote(step: LifecycleStep) {
-    return <aside className="new-chat" aria-label={newConversation.title}>
-      <strong>{newConversation.title}</strong>
-      <p>{newConversation.why} <a className="term" href={termById('new-chat').url} target="_blank" rel="noreferrer">Read more</a></p>
+    return <aside className="new-chat" aria-label={bundle.newConversation.title}>
+      <strong>{bundle.newConversation.title}</strong>
+      <p>{bundle.newConversation.why} <a className="term" href={termById('new-chat', lang).url} target="_blank" rel="noreferrer">{ui.readMoreLabel}</a></p>
       <p className="small">{newConversationHow(step.request, settings)}</p>
     </aside>
   }
@@ -255,29 +301,30 @@ function App() {
     }
     const shell = prompt.kind === 'shell'
     const agent = shell ? undefined : agentSelection(prompt, settings)
-    const terms = shell ? [] : promptTerms(prompt)
-    const needsSettings = blockers.some(item => item.includes('Session setup') || item.includes('team name'))
+    const terms = shell ? [] : promptTerms(prompt, lang)
+    const needsSettings = blockers.some(item =>
+      item.includes(ui.sessionSetupHeading) || Object.values(ui.squadLabels).some(label => item.includes(label)))
     return <div className="prompt-block">
       <div className="prompt-toolbar">
-        <span className={`kind ${prompt.kind}`}>{kindLabels[prompt.kind]}</span>
-        <button type="button" disabled={blockers.length > 0} onClick={() => copy(text)}>{shell && prompt.bash ? 'Copy PowerShell' : 'Copy'}</button>
+        <span className={`kind ${prompt.kind}`}>{ui.kindLabels[prompt.kind]}</span>
+        <button type="button" disabled={blockers.length > 0} onClick={() => copy(text)}>{shell && prompt.bash ? ui.copyPowerShellBtn : ui.copyBtn}</button>
       </div>
       <h4>{prompt.title}</h4>
       {agent && <p className="agent-hint">{agent.instruction}</p>}
-      {terms.length > 0 && <p className="agent-hint term-links">Terms in this message: {termLinks(terms)}</p>}
-      {prompt.kind === 'work' && routingPicker(prompt.title)}
-      {shell && prompt.bash && <p className="shell-label">Windows · PowerShell</p>}
+      {terms.length > 0 && <p className="agent-hint term-links">{ui.termsInMessageLabel} {termLinks(terms)}</p>}
+      {prompt.kind === 'work' && executionControls(prompt.title)}
+      {shell && prompt.bash && <p className="shell-label">{ui.windowsPowerShellLabel}</p>}
       <pre tabIndex={0}><code>{text}</code></pre>
       {shell && prompt.bash && <>
-        <p className="shell-label">macOS / Linux · bash <button type="button" onClick={() => copy(prompt.bash!)}>Copy bash</button></p>
+        <p className="shell-label">{ui.macLinuxBashLabel} <button type="button" onClick={() => copy(prompt.bash!)}>{ui.copyBashBtn}</button></p>
         <pre tabIndex={0}><code>{prompt.bash}</code></pre>
       </>}
       {blockers.length > 0 && <div className="prompt-warning" role="note">
-        Copy unlocks when:
+        {ui.copyUnlocksWhen}
         <ul>{blockers.map(item => <li key={item}>{item}</li>)}</ul>
-        {missingSetup(prompt, saved.checked, settings).slice(0, 1).map(step => <a key={step.id} href={`#${step.lessonId}`}>Go to “{step.title}”</a>)}
-        {missingSetup(prompt, saved.checked, settings).length === 0 && (prompt.requiresChecks ?? []).filter(id => !saved.checked.includes(id)).slice(0, 1).map(id => <a key={id} href={`#${id.slice(0, id.lastIndexOf('-'))}`}>Go to that checkpoint</a>)}
-        {needsSettings && <button type="button" onClick={() => { setSetupOpen(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Open Session setup</button>}
+        {missingSetup(prompt, saved.checked, settings).slice(0, 1).map(step => <a key={step.id} href={`#${step.lessonId}`}>{ui.goToStep(step.title)}</a>)}
+        {missingSetup(prompt, saved.checked, settings).length === 0 && (prompt.requiresChecks ?? []).filter(id => !saved.checked.includes(id)).slice(0, 1).map(id => <a key={id} href={`#${id.slice(0, id.lastIndexOf('-'))}`}>{ui.goToCheckpoint}</a>)}
+        {needsSettings && <button type="button" onClick={() => { setSetupOpen(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>{ui.openSessionSetupBtn}</button>}
       </div>}
     </div>
   }
@@ -287,50 +334,49 @@ function App() {
       <div><h2>{step.title}</h2><p>{tr(step.body)}</p>{step.prompt && promptBlock(step.prompt)}</div>
     </div>
   }
-  const starterPanel = (heading = 'Get the starter solution') => <section className="starter-panel" aria-label="Starter solution">
+  const starterPanel = (heading = ui.starterPanelDefaultHeading) => <section className="starter-panel" aria-label={ui.starterPanelDefaultHeading}>
     <div>
       <h2>{heading}</h2>
-      <p>One click gives you the complete Northwind workshop folder: the business case with its three business areas, the engineering standards, the legacy .NET Framework 4.8 Order Desk with its 28 tests, the database scripts and a readiness check. {canWriteFolders() ? 'You choose where it goes on your computer.' : 'Your browser will download it as a zip file.'}</p>
+      <p>{ui.starterPanelBody(canWriteFolders())}</p>
       {starterMessage && <p className="starter-result" role="status">{starterMessage}</p>}
-      {canWriteFolders() && <p className="small">Prefer a zip? <a href={starterZipUrl()} download onClick={event => { event.preventDefault(); downloadZip() }}>Download northwind-workshop.zip</a></p>}
+      {canWriteFolders() && <p className="small">{ui.preferZipPrefix} <a href={starterZipUrl()} download onClick={event => { event.preventDefault(); downloadZip() }}>{ui.downloadZipLink}</a></p>}
     </div>
-    <button type="button" className="button starter-button" disabled={starterBusy} onClick={fetchStarter}>{starterBusy ? 'Writing files…' : canWriteFolders() ? 'Choose a folder and get the starter' : 'Download the starter'}</button>
+    <button type="button" className="button starter-button" disabled={starterBusy} onClick={fetchStarter}>{starterBusy ? ui.writingFilesBtn : canWriteFolders() ? ui.chooseFolderBtn : ui.downloadStarterBtn}</button>
   </section>
 
   function installPanel(): ReactNode {
-    return <section className="panel" aria-label="Install HVE Squad">
-      <span className="eyebrow">Step 3 · {clientLabels[settings.experience]}</span>
-      <h2>Install HVE Squad {squadVersion}</h2>
-      <p className="small">The guide always targets the latest HVE Squad release: <a href={squadReleaseUrl} target="_blank" rel="noreferrer">v{squadVersion} release notes</a>.</p>
+    const inst = bundle.installation
+    return <section className="panel" aria-label={ui.installHeading(squadVersion)}>
+      <span className="eyebrow">{ui.installStepEyebrow(clientLabels[settings.experience])}</span>
+      <h2>{ui.installHeading(squadVersion)}</h2>
+      <p className="small">{ui.installReleaseNotePrefix} <a href={squadReleaseUrl} target="_blank" rel="noreferrer">{ui.installReleaseNotesLink(squadVersion)}</a>.</p>
       {settings.experience === 'cli' && <>
-        <p>Run these in any terminal. One plugin bundles HVE Squad and its pinned HVE Core; do not install a second hve-core plugin. <code>copilot plugin list</code> must show <code>{pluginId} (v{squadVersion})</code>. Then start a fresh <code>copilot</code> session inside the northwind-workshop folder and type <code>/agent</code>: you should see Squad Coordinator and Squad Federation Coordinator.</p>
-        {promptBlock(installation.cli)}
-        <details><summary>Installed for an earlier workshop? Update to v{squadVersion}</summary>
-          <p>For the self-contained plugin, refresh the marketplace and update the one plugin; Squad and HVE Core update together.</p>
-          {promptBlock(installation.cliUpdate)}
+        <p>{ui.cliInstallBody(pluginId, squadVersion)}</p>
+        {promptBlock(inst.cli)}
+        <details><summary>{ui.cliSwitchRepoSummary}</summary>
+          <p>{ui.cliSwitchRepoBody(legacyRepoMarketplace, pluginMarketplace)}</p>
+          {promptBlock(inst.cliSwitchRepo)}
         </details>
-        <details><summary>Still using the retired hve-squad-plugin marketplace?</summary>
-          <p>Remove its two entries and marketplace first, then install the self-contained plugin. Run the uninstall commands only for entries shown by <code>copilot plugin list</code>. Your project and squad state are not reset.</p>
-          {promptBlock(installation.cliMigrate)}
+        <details><summary>{ui.cliUpdateSummary(squadVersion)}</summary>
+          <p>{ui.cliUpdateBody}</p>
+          {promptBlock(inst.cliUpdate)}
+        </details>
+        <details><summary>{ui.cliMigrateSummary}</summary>
+          <p>{ui.cliMigrateBody}</p>
+          {promptBlock(inst.cliMigrate)}
         </details>
       </>}
       {settings.experience === 'app' && <>
-        <ol>
-          <li>If migrating, uninstall the retired marketplace's hve-squad and hve-squad-hve-core entries and remove that marketplace first.</li>
-          <li>Open <strong>Customize → Plugins</strong> in the Copilot App and add <code>{pluginMarketplace}</code>.</li>
-          <li>Install only <code>hve-squad</code>. It bundles HVE Core; do not install a second hve-core plugin.</li>
-          <li>Check that hve-squad shows version <strong>{squadVersion}</strong>. Use the App's update action if it is older.</li>
-          <li>Start a fresh session on the northwind-workshop folder and check the agent list for Squad Coordinator and Squad Federation Coordinator.</li>
-        </ol>
-        <p className="small">Labels can vary between App versions; see the <a href={`${docsUrl}getting-started.html`} target="_blank" rel="noreferrer">installation guide</a>. A CLI installation does not prove that the App has the plugin.</p>
+        <ol>{ui.appInstallSteps(pluginMarketplace, legacyRepoMarketplace, squadVersion).map(step => <li key={step}>{step}</li>)}</ol>
+        <p className="small">{ui.appInstallNote.beforeLink}<a href={`${bundle.docsUrl}getting-started.html`} target="_blank" rel="noreferrer">{ui.appInstallNote.linkText}</a>{ui.appInstallNote.afterLink}</p>
       </>}
       {vscode && <>
-        <p>Use the self-contained plugin, with no APM installation required. Run <strong>Chat: Manage Plugin Marketplaces</strong>, add <code>{pluginMarketplace}</code>, then open <strong>Chat: Open Customizations → Plugins</strong> and install <code>hve-squad</code>. Check version <strong>{squadVersion}</strong>; use <strong>Check for and Apply Updates</strong> if needed. Do not keep an old APM copy or a second HVE Core plugin enabled alongside it.</p>
-        <p className="small">Start a fresh Copilot session and open the agents dropdown: Squad Coordinator and Squad Federation Coordinator must be listed. Choose an agent there and paste the message the guide gives you. Ask the coordinator to run <code>squad-doctor</code> if agents are missing.</p>
-        <details><summary>Fallback: install into the repository with APM</summary>
-          <p>Use this instead of the plugin only when customizations must live in the repository. APM must be <strong>exactly {apmCliVersion}</strong>. Sign in to GitHub (<code>gh auth login</code>) to avoid slow rate limits, then run this inside northwind-workshop:</p>
-          {promptBlock(installation.apm)}
-          <p className="small">Reload VS Code and check the agents dropdown. <a href={apmCliReleaseUrl} target="_blank" rel="noreferrer">APM {apmCliVersion} release</a>.</p>
+        <p>{ui.vscodeInstallBody(pluginMarketplace, legacyRepoMarketplace, squadVersion)}</p>
+        <p className="small">{ui.vscodeInstallNote}</p>
+        <details><summary>{ui.vscodeApmSummary}</summary>
+          <p>{ui.vscodeApmBody(apmCliVersion)}</p>
+          {promptBlock(inst.apm)}
+          <p className="small">{ui.vscodeApmFooter} <a href={apmCliReleaseUrl} target="_blank" rel="noreferrer">APM {apmCliVersion}</a>.</p>
         </details>
       </>}
     </section>
@@ -338,31 +384,36 @@ function App() {
   function mcpPanel(): ReactNode {
     const org = settings.organization.trim() || '<organization>'
     const url = `https://mcp.dev.azure.com/${org}`
-    return <section className="panel" aria-label="Connect Azure DevOps">
-      <span className="eyebrow">Official remote Azure DevOps MCP server · {clientLabels[settings.experience]}</span>
-      <h2>Connect Azure DevOps</h2>
-      {vscode && <><p>Create <code>.vscode/mcp.json</code> in the northwind-workshop folder, start the server from the MCP view and sign in with your work account when asked.</p>
+    return <section className="panel" aria-label={ui.adoMcpHeading}>
+      <span className="eyebrow">{ui.adoMcpEyebrow(clientLabels[settings.experience])}</span>
+      <h2>{ui.adoMcpHeading}</h2>
+      {vscode && <><p>{ui.adoMcpVscodeBody}</p>
         <pre tabIndex={0}><code>{JSON.stringify({ servers: { 'ado-remote-mcp': { url, type: 'http' } }, inputs: [] }, null, 2)}</code></pre></>}
-      {settings.experience === 'cli' && <><p>In Copilot CLI run <code>/mcp add</code> and enter: name <code>ado</code>, type <strong>HTTP</strong>, URL <code>{url}</code>, tools <code>*</code>. Sign in when prompted. The equivalent entry in <code>~/.copilot/mcp-config.json</code> is:</p>
+      {settings.experience === 'cli' && <><p>{ui.adoMcpCliBody}</p>
         <pre tabIndex={0}><code>{JSON.stringify({ mcpServers: { ado: { type: 'http', url, tools: ['*'] } } }, null, 2)}</code></pre></>}
-      {settings.experience === 'app' && <p>Open the App's MCP server settings, add an <strong>HTTP</strong> server named <code>ado</code> with the URL <code>{url}</code>, and sign in with your work account when asked.</p>}
-      <p className="small">Then, with no squad agent selected, ask “List my Azure DevOps projects”. Your organization must use Microsoft Entra ID. Never paste a token into a prompt or file. <a href="https://learn.microsoft.com/azure/devops/mcp-server/remote-mcp-server" target="_blank" rel="noreferrer">Microsoft Learn: remote MCP server</a>.</p>
+      {settings.experience === 'app' && <>
+        <p>{ui.adoMcpAppBody}</p>
+        <pre tabIndex={0}><code>{url}</code></pre>
+      </>}
+      <p className="small">{ui.adoMcpFooter.beforeLink}<a href="https://learn.microsoft.com/azure/devops/mcp-server/remote-mcp-server" target="_blank" rel="noreferrer">{ui.adoMcpFooter.linkText}</a>.</p>
     </section>
   }
 
   function renderLesson(lesson: Lesson, printOnly = false) {
+    const mins = lessonMinutes(lesson, settings)
     return <article key={lesson.id} className={printOnly ? 'lesson print-only' : 'lesson'} aria-label={lesson.title}>
-      <div className="eyebrow">{lesson.eyebrow}<span>/</span>{lesson.minutes ? `${lesson.minutes} min` : 'self-paced'}</div>
+      <div className="eyebrow">{lesson.eyebrow}<span>/</span>{mins ? `${mins} ${ui.minutesSuffix}` : ui.selfPacedLabel}</div>
       <div className="lesson-title"><span className="big-number">{lesson.number}</span><h1>{lesson.title}</h1></div>
       <p className="lead">{tr(lesson.goal)}</p>
-      {lesson.optional && <div className="optional-banner"><strong>Optional.</strong> Its checkpoints do not count toward your core progress, and nothing later depends on it.</div>}
-      <div className="concept"><strong>The idea</strong><p>{tr(lesson.concept)}</p></div>
+      <p className="timing-bar"><strong>{ui.timingBreakdownLabel}:</strong> {lesson.timing}</p>
+      {lesson.optional && <div className="optional-banner"><strong>{ui.optionalBannerStrong}</strong> {ui.optionalBannerBody}</div>}
+      <div className="concept"><strong>{ui.theIdeaLabel}</strong><p>{tr(lesson.concept)}</p></div>
       {lesson.id === 'prepare' && <>
         {readFirstPanel(printOnly ? 'Part 00, print' : 'Part 00')}
-        <section aria-label="Everything you need">
-          <div className="section-heading"><h2>Everything you need, in one place</h2><span className="badge">Check once</span></div>
+        <section aria-label={ui.prereqSectionHeading}>
+          <div className="section-heading"><h2>{ui.prereqSectionHeading}</h2><span className="badge">{ui.prereqBadge}</span></div>
           <table className="prereq-table">
-            <thead><tr><th>What</th><th>Why</th><th>When</th><th>Check</th><th className="os">Windows</th><th className="os">macOS</th></tr></thead>
+            <thead><tr><th>{ui.prereqColumns.what}</th><th>{ui.prereqColumns.why}</th><th>{ui.prereqColumns.when}</th><th>{ui.prereqColumns.check}</th><th className="os">{ui.prereqColumns.windows}</th><th className="os">{ui.prereqColumns.mac}</th></tr></thead>
             <tbody>{visiblePrerequisites(settings).map(item => <tr key={item.what}>
               <td><strong>{item.what}</strong></td>
               <td>{item.why}</td>
@@ -372,37 +423,51 @@ function App() {
               <td className="os"><code>{item.mac}</code></td>
             </tr>)}</tbody>
           </table>
-          <p className="small">You do <strong>not</strong> need:</p>
-          <ul className="not-needed">{notNeeded.map(item => <li key={item}>{item}</li>)}</ul>
-          <p className="small">{pwshNote}</p>
+          <p className="small">{ui.notNeededIntro.before}<strong>{ui.notNeededIntro.strong}</strong>{ui.notNeededIntro.after}</p>
+          <ul className="not-needed">{bundle.notNeeded.map(item => <li key={item}>{item}</li>)}</ul>
+          <p className="small">{bundle.pwshNote}</p>
         </section>
-        {starterPanel('Step 1 · Get the starter solution')}
+        {starterPanel(ui.starterStep1Heading)}
       </>}
       {lesson.id === 'product' && trackPicker(printOnly ? 'Part 02, print' : 'Part 02')}
       {lesson.id === 'orient' && <>
         <div className="rule-grid">
-          <aside className="rule-box"><strong>{modeRule.title}</strong><p>{rich(modeRule.body)}</p></aside>
-          <aside className="rule-box"><strong>{modelGuidance.title}</strong><p>{modelGuidance.body}</p></aside>
+          <aside className="rule-box"><strong>{bundle.modeRule.title}</strong><p>{rich(bundle.modeRule.body)}</p></aside>
+          <aside className="rule-box"><strong>{bundle.modelGuidance.title}</strong><p>{bundle.modelGuidance.body}</p></aside>
         </div>
-        <section className="panel routing-panel" aria-label="Model routing">
-          <span className="eyebrow">Your choice · added to every work request</span>
-          <h2>Model routing: how each role's model is chosen</h2>
-          <div className="routing-options">{routingOptions.map(option => <button type="button" key={option.value} className="routing-option" aria-pressed={settings.routing === option.value} onClick={() => updateSetting('routing', option.value)}>
+        <aside className="rule-box studio-box">
+          <span className="eyebrow">{bundle.studioNote.eyebrow}</span>
+          <strong>{bundle.studioNote.title}</strong>
+          <p>{rich(bundle.studioNote.body)}</p>
+        </aside>
+        <section className="panel routing-panel" aria-label={ui.routingLabel}>
+          <span className="eyebrow">{ui.routingPanelEyebrow}</span>
+          <h2>{ui.routingPanelHeading}</h2>
+          <div className="routing-options">{bundle.routingOptions.map(option => <button type="button" key={option.value} className="routing-option" aria-pressed={settings.routing === option.value} onClick={() => updateSetting('routing', option.value)}>
             <code>routing="{option.value}"</code><strong>{option.summary}</strong><span>{option.detail}</span>
           </button>)}</div>
-          <p className="small">{routingNote}</p>
+          {settings.routing === 'economy' && <p className="small economy-hint">{ui.economyConsentHint}</p>}
+          <p className="small">{bundle.routingNote}</p>
+        </section>
+        <section className="panel routing-panel" aria-label={ui.depthLabel}>
+          <span className="eyebrow">{ui.depthPanelEyebrow}</span>
+          <h2>{ui.depthPanelHeading}</h2>
+          <div className="depth-options">{bundle.depthOptions.map(option => <button type="button" key={option.value} className="routing-option" aria-pressed={settings.depth === option.value} onClick={() => updateSetting('depth', option.value)}>
+            <code>depth="{option.value}"</code><strong>{option.summary}</strong><span>{option.detail}</span>
+          </button>)}</div>
+          <p className="small">{bundle.depthNote}</p>
         </section>
       </>}
-      <section className="inputs"><h2>Have these ready</h2><ul>{txList(lesson.inputs).map(input => <li key={input}>{rich(input)}</li>)}</ul></section>
+      <section className="inputs"><h2>{ui.haveTheseReadyHeading}</h2><ul>{txList(lesson.inputs).map(input => <li key={input}>{rich(input)}</li>)}</ul></section>
       {lesson.setup && <section aria-label="Setup">
-        <div className="section-caption">Setup first · confirm · then the work request</div>
+        <div className="section-caption">{ui.setupSectionCaption}</div>
         {lesson.setup.map(step => <section className="lifecycle-step" key={step.id}>
           <h2>{step.title}</h2>
           <p>{tr(step.description)}</p>
           {lifecycleExplainer(step)}
           {promptBlock(step.request)}
           {setupQuestions(step)}
-          <h3>What should happen</h3>
+          <h3>{ui.whatShouldHappenHeading}</h3>
           <ul>{txList(step.expected).map(item => <li key={item}>{rich(item)}</li>)}</ul>
           {newConversationNote(step)}
           <label className="check-row setup-check">
@@ -417,244 +482,237 @@ function App() {
         <p>{tr(item.hint)}</p>
         {promptBlock(item.prompt)}
       </section>)}
-      {visibleAnswers(lesson.answers, settings).length > 0 && <section className="answers panel" aria-label="Business answers">
-        <span className="eyebrow">You play Northwind · only when the squad asks</span>
-        <h2>Business answers you can give</h2>
-        <p className="small">Do not send these up front. Use them to answer the intake validator's questions consistently. Anything it does not ask about should appear in the documents as ASSUMPTION or OPEN.</p>
+      {visibleAnswers(lesson.answers, settings).length > 0 && <section className="answers panel" aria-label={ui.businessAnswersHeading}>
+        <span className="eyebrow">{ui.businessAnswersEyebrow}</span>
+        <h2>{ui.businessAnswersHeading}</h2>
+        <p className="small">{ui.businessAnswersIntro}</p>
         <table><tbody>{visibleAnswers(lesson.answers, settings).map(item => <tr key={item.question}><td>{item.question}</td><td>{item.answer}</td></tr>)}</tbody></table>
       </section>}
-      {lesson.behaviors && <section className="behavior-panel" aria-label="What to observe">
-        <span className="eyebrow">Observe · not part of the request</span>
-        <h2>What the squad should do on its own</h2>
+      {lesson.behaviors && <section className="behavior-panel" aria-label={ui.observeHeading}>
+        <span className="eyebrow">{ui.observeEyebrow}</span>
+        <h2>{ui.observeHeading}</h2>
         <ul>{txList(lesson.behaviors).map(item => <li key={item}>{rich(item)}</li>)}</ul>
-        <p className="small">{observationNote}</p>
+        <p className="small">{bundle.observationNote}</p>
       </section>}
-      {lesson.reviewKey && <section className="review-key" aria-label="Review key">
-        <span className="eyebrow">Review key</span>
+      {lesson.reviewKey && <section className="review-key" aria-label={ui.reviewKeyEyebrow}>
+        <span className="eyebrow">{ui.reviewKeyEyebrow}</span>
         <h2>{lesson.reviewKey.title}</h2>
         <p>{tx(lesson.reviewKey.intro)}</p>
         <ol>{lesson.reviewKey.items.map(item => <li key={item.label}><strong>{item.label}</strong>{tx(item.detail)}</li>)}</ol>
       </section>}
-      <section aria-label="Steps">
-        <div className="section-caption">{lesson.flow || lesson.setup ? 'Review and verify' : 'Steps'}</div>
+      <section aria-label={ui.stepsCaption}>
+        <div className="section-caption">{lesson.flow || lesson.setup ? ui.reviewAndVerifyCaption : ui.stepsCaption}</div>
         {lesson.steps.map((step, index) => <div key={step.title}>
           {exercise(step, index)}
           {lesson.id === 'prepare' && index === 2 && installPanel()}
         </div>)}
       </section>
       <div className="checkpoint-grid">
-        <section className="evidence-card"><span className="eyebrow">Evidence</span><h2>Keep this</h2><ul>{txList(lesson.evidence).map(item => <li key={item}>{rich(item)}</li>)}</ul></section>
-        <section className="check-card"><span className="eyebrow">Your checkpoint</span><h2>Can you show it?</h2>
+        <section className="evidence-card"><span className="eyebrow">{ui.evidenceEyebrow}</span><h2>{ui.evidenceHeading}</h2><ul>{txList(lesson.evidence).map(item => <li key={item}>{rich(item)}</li>)}</ul></section>
+        <section className="check-card"><span className="eyebrow">{ui.checkpointEyebrow}</span><h2>{ui.checkpointHeading}</h2>
           {lesson.checks.map((item, index) => <label className="check-row" key={item}>
             <input type="checkbox" checked={saved.checked.includes(lessonCheckId(lesson.id, index))} onChange={() => toggle(lessonCheckId(lesson.id, index))} />
             <span>{tr(item)}</span>
           </label>)}
-          <p className="small">Your own record, stored in this browser. It does not inspect your project.</p>
+          <p className="small">{ui.checkpointBrowserNote}</p>
         </section>
       </div>
-      <aside className="recovery"><h3>If you get stuck</h3><p>{tr(lesson.recovery)}</p></aside>
+      <aside className="recovery"><h3>{ui.recoveryHeading}</h3><p>{tr(lesson.recovery)}</p></aside>
     </article>
   }
 
   const agendaItems = visibleAgenda(settings)
-  const totalMinutes = agendaItems.reduce((total, item) => total + item.minutes, 0)
-  const lessonNumber = (id: string) => lessons.find(lesson => lesson.id === id)?.number
-  const outcomes: Record<string, string> = {
-    azure: 'Migration blockers found in the code, not guessed.',
-    dotnet: 'Pricing tests green and unchanged on .NET 10.',
-    powerPlatform: 'Licences, data and approvals designed before anything is built.',
-  }
+  const totals = sessionTotals(settings)
+  const lessonNumber = (id: string) => bundle.lessons.find(lesson => lesson.id === id)?.number
+  const hoursMeta = ui.overviewMetaHours(ui.formatHoursMinutes(totals.coreMinutes))
+  const teamsMeta = ui.overviewMetaTeams(chosen.length + 1, chosen.map(track => track.label).join(' · '))
   const overview = <div className="overview">
     <section className="hero">
-      <div className="eyebrow">Hands-on workshop · <a href={squadReleaseUrl} target="_blank" rel="noreferrer">HVE Squad v{squadVersion}</a> (latest release)</div>
-      <h1>From one business case to <em>releases every team can build.</em></h1>
-      <p className="lead">A product team turns Northwind's business case into traceable documents and a backlog tagged by track and by release, with numbered releases for each delivery track. You choose what to build — all tracks, one track or a selection of Azure, .NET and Power Platform — and each track's team builds from its own releases, independently of the others. You review, answer and approve along the way.</p>
+      <div className="eyebrow">{ui.overviewHeroEyebrow} · <a href={squadReleaseUrl} target="_blank" rel="noreferrer">HVE Squad v{squadVersion}</a> ({ui.overviewHeroLatest})</div>
+      <h1>{ui.overviewHeroTitleBefore}<em>{ui.overviewHeroTitleEm}</em></h1>
+      <p className="lead">{ui.overviewHeroLead}</p>
       <div className="hero-actions">
-        <a className="button primary" href={conceptsUrl} target="_blank" rel="noreferrer">{readFirst.action} ↗</a>
-        <button type="button" className="button starter-button" disabled={starterBusy} onClick={fetchStarter}>{starterBusy ? 'Writing files…' : 'Get the starter solution'}</button>
-        <a className="button" href="#prepare">Start with Part 00 →</a>
+        <a className="button primary" href={bundle.conceptsUrl} target="_blank" rel="noreferrer">{bundle.readFirst.action} ↗</a>
+        <button type="button" className="button starter-button" disabled={starterBusy} onClick={fetchStarter}>{starterBusy ? ui.writingFilesBtn : ui.starterPanelDefaultHeading}</button>
+        <a className="button" href="#prepare">{ui.overviewStartPart00}</a>
       </div>
       {starterMessage && <p className="starter-result" role="status">{starterMessage}</p>}
       <div className="hero-meta">
-        <span><strong>~{Math.round(totalMinutes / 6) / 10} hours</strong>facilitated or self-paced</span>
-        <span><strong>{chosen.length + 1} teams</strong>product · {chosen.map(track => track.label).join(' · ')}</span>
-        <span><strong>Tagged releases</strong>r1, r2… per track, one Git tag each</span>
-        <span><strong>0 deployments</strong>nothing touches Azure or a tenant</span>
+        <span><strong>{hoursMeta.strong}</strong>{hoursMeta.sub}</span>
+        <span><strong>{teamsMeta.strong}</strong>{teamsMeta.sub}</span>
+        <span><strong>{ui.overviewMetaReleases.strong}</strong>{ui.overviewMetaReleases.sub}</span>
+        <span><strong>{ui.overviewMetaZeroDeploy.strong}</strong>{ui.overviewMetaZeroDeploy.sub}</span>
       </div>
     </section>
     {readFirstPanel('overview')}
     {trackPicker('overview')}
-    <section className="card" aria-label="Journey">
-      <div className="section-heading"><h2>One product, independent tracks</h2><span className="badge">Single squad → federation</span></div>
+    <section className="card" aria-label={ui.journeyHeading}>
+      <div className="section-heading"><h2>{ui.journeyHeading}</h2><span className="badge">{ui.journeyBadge}</span></div>
       <div className="journey">
-        <div><span>02</span><strong>Product</strong><small>Intake · BRD · PRD · MVE · backlog tagged by track and release</small><em className="team-chip">{settings.productSquad}</em></div>
-        <div className="optional"><span>03 · optional</span><strong>Azure DevOps</strong><small>Publish with approval</small></div>
+        <div><span>02</span><strong>{ui.journeyProductTitle}</strong><small>{ui.journeyProductSub}</small><em className="team-chip">{settings.productSquad}</em></div>
+        <div className="optional"><span>{ui.journeyAdoSpan}</span><strong>{ui.journeyAdoTitle}</strong><small>{ui.journeyAdoSub}</small></div>
         {chosen.map(track => <div key={track.id} className="track-card"><span>{lessonNumber(track.lessonId)} · {track.area}</span><strong>{track.label}</strong><small>{track.produces}</small><code className="release-chip">{releaseName(track, 1)}, {releaseName(track, 2)}…</code><em className="team-chip">{settings[track.squadKey]}</em></div>)}
-        <div><span>08</span><strong>Together</strong><small>Status across teams · resume</small></div>
+        <div><span>08</span><strong>{ui.journeyTogetherTitle}</strong><small>{ui.journeyTogetherSub}</small></div>
+        <div className="optional"><span>{ui.journeyConnectorSpan}</span><strong>{ui.journeyConnectorTitle}</strong><small>{ui.journeyConnectorSub}</small></div>
       </div>
-      <p className="small">Each track team starts from its own releases after the federation is opened (Part 04) and never waits for another track. Do the tracks in any order; in a group session, split them across tables.</p>
+      <p className="small">{ui.journeyFootNote}</p>
     </section>
     <div className="overview-grid">
       <section className="agenda-card">
-        <div className="section-heading"><h2>Agenda</h2><span className="small">Durations, not clock times</span></div>
+        <div className="section-heading"><h2>{ui.agendaHeading}</h2><span className="small">{ui.agendaSub(settings.depth)}</span></div>
         {agendaItems.map(item => {
-          const lesson = lessons.find(candidate => candidate.id === item.lesson)
-          return <div className="agenda-row" key={item.title}>
+          const lesson = bundle.lessons.find(candidate => candidate.id === item.lesson)
+          const mins = agendaMinutes(item, settings)
+          return <div className="agenda-row" key={`${item.lesson}-${item.title}`}>
             <span className="num">{lesson?.number ?? '—'}</span>
-            {lesson ? <a href={`#${lesson.id}`}>{item.title}{item.optional && <span className="optional-tag">optional</span>}</a> : <span>{item.title}</span>}
-            <span className="duration">{item.note ?? `${item.minutes} min`}</span>
+            {lesson ? <a href={`#${lesson.id}`}>{item.title}{item.optional && <span className="optional-tag">{ui.optionalBadge}</span>}</a> : <span>{item.title}</span>}
+            <span className="duration">{item.note ?? `${mins} ${ui.minutesSuffix}`}</span>
           </div>
         })}
-        <div className="agenda-total"><span>Live session</span><span>{Math.floor(totalMinutes / 60)} h {totalMinutes % 60} min</span></div>
+        <div className="agenda-total"><span>{ui.agendaCoreLiveTotal}</span><span>{ui.formatHoursMinutes(totals.coreMinutes)}</span></div>
+        {totals.optionalMinutes > 0 && <div className="agenda-subtotal"><span>{ui.agendaWithOptionalTotal(totals.optionalMinutes)}</span><span>{ui.formatHoursMinutes(totals.totalMinutes)}</span></div>}
       </section>
       <section className="outcome-card">
-        <span className="eyebrow">The real finish line</span>
-        <h2>Leave able to do it again.</h2>
-        <p>You do not need a finished application. You need to show evidence, explain your decisions and resume the work later.</p>
+        <span className="eyebrow">{ui.outcomeEyebrow}</span>
+        <h2>{ui.outcomeHeading}</h2>
+        <p>{ui.outcomeLead}</p>
         <ul>
-          <li>Every requirement traceable to its source, every backlog item tagged with its track.</li>
-          {chosen.map(track => <li key={track.id}>{outcomes[track.id]}</li>)}
-          <li>{chosen.length + 1} teams, one consistent picture.</li>
+          <li>{ui.outcomeFirstBullet}</li>
+          {chosen.map(track => <li key={track.id}>{ui.outcomeTrackBullets[track.id]}</li>)}
+          <li>{ui.outcomeTeamsBullet(chosen.length + 1)}</li>
         </ul>
-        <div className="inset"><strong>Northwind is fictitious.</strong><p>Every document and line of code in the starter is synthetic and safe to share.</p></div>
+        <div className="inset"><strong>{ui.fictitiousStrong}</strong><p>{ui.fictitiousBody}</p></div>
       </section>
     </div>
     <section className="feedback-note">
-      <h2>Designed from participant feedback</h2>
-      <ul>
-        <li>One prerequisites list, each tool tied to the part or track that needs it.</li>
-        <li>A short reading before Part 00, and every term linked to its explanation in the docs.</li>
-        <li>One button for a ready-to-use folder; no manual repository setup.</li>
-        <li>Markdown business case: no PDF readers or OCR.</li>
-        <li>Identifiers on every fact, so invented or missing requirements are easy to spot.</li>
-        <li>An intake validator checks the case for gaps before any document is drafted.</li>
-        <li>Engineering standards that define structure, style, file locations, track tags and releases.</li>
-        <li>Independent tracks you choose, so every team or table can work on a different area.</li>
-        <li>Azure DevOps optional, with the official remote MCP server.</li>
-        <li>Review keys and terminal checks instead of trusting summaries.</li>
-      </ul>
+      <h2>{ui.feedbackHeading}</h2>
+      <ul>{ui.feedbackBullets.map(item => <li key={item}>{item}</li>)}</ul>
     </section>
   </div>
 
   const nextLesson = active ? visible[visible.indexOf(active) + 1] : undefined
   const previousLesson = active ? visible[visible.indexOf(active) - 1] : undefined
-  const hiddenTrack = tracks.find(track => track.id === hiddenLesson?.track)
+  const hiddenTrack = bundle.tracks.find(track => track.id === hiddenLesson?.track)
   const hiddenPage = hiddenLesson && hiddenTrack && <section className="hidden-part">
     <div className="eyebrow">{hiddenLesson.eyebrow}</div>
-    <h1>Part {hiddenLesson.number} is hidden</h1>
-    <p className="lead">You did not choose the {hiddenTrack.label} track in Part 02, so its part is hidden from this guide. Tracks are independent: you can add it at any time, then ask the product team for its releases.</p>
-    <button type="button" className="button primary" onClick={() => updateSettings(addTrack(settings, hiddenTrack.id))}>Add the {hiddenTrack.label} track</button>{' '}
-    <a className="button" href="#overview">Back to the overview</a>
+    <h1>{ui.hiddenPartHeading(hiddenLesson.number)}</h1>
+    <p className="lead">{ui.hiddenPartBody(hiddenTrack.label)}</p>
+    <button type="button" className="button primary" onClick={() => updateSettings(addTrack(settings, hiddenTrack.id))}>{ui.addTrackBtn(hiddenTrack.label)}</button>{' '}
+    <a className="button" href="#overview">{ui.backToOverview}</a>
   </section>
 
   const resources = <article className="resources">
-    <div className="eyebrow">Keep moving, without guessing</div>
-    <h1>Resources</h1>
-    <p className="lead">Templates, fixes for common problems, and the sources behind every step.</p>
+    <div className="eyebrow">{ui.resourcesEyebrow}</div>
+    <h1>{ui.resourcesHeading}</h1>
+    <p className="lead">{ui.resourcesLead}</p>
     {starterPanel()}
-    <section><h2>Templates</h2><p>Blank templates for your own notes. Keep the filled copies in your northwind-workshop folder.</p>
-      <a className="button primary" href={`${base}downloads/evidence-log.md`} download>Evidence log</a>
+    <section><h2>{ui.templatesHeading}</h2><p>{ui.templatesBody}</p>
+      <a className="button primary" href={`${base}${ui.evidenceLogFile}`} download>{ui.evidenceLogBtn}</a>
     </section>
-    <section><h2>When something goes wrong</h2>{troubleshooting.map(([title, body]) => <details key={title}><summary>{title}</summary><p>{rich(body)}</p></details>)}</section>
-    <section><h2>Sources</h2><ul className="source-list">{sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.name} ↗</a></li>)}</ul>
-      <p className="small">HVE Squad logo and documentation identity are MIT licensed; Manrope, Source Sans 3 and JetBrains Mono are SIL Open Font License fonts. <a href={`${base}THIRD-PARTY-NOTICES.txt`}>Third-party notices</a>.</p>
+    <section><h2>{ui.whenWrongHeading}</h2>{bundle.troubleshooting.map(([title, body]) => <details key={title}><summary>{title}</summary><p>{rich(body)}</p></details>)}</section>
+    <section><h2>{ui.sourcesHeading}</h2><ul className="source-list">{bundle.sources.map(source => <li key={`${source.name}-${source.url}`}><a href={source.url} target="_blank" rel="noreferrer">{source.name} ↗</a></li>)}</ul>
+      <p className="small">{ui.noticesNote.beforeLink}<a href={`${base}THIRD-PARTY-NOTICES.txt`}>{ui.noticesNote.linkText}</a>.</p>
     </section>
-    <section><h2>Your browser data</h2><p>Progress and Session setup stay in this browser only. Nothing is sent anywhere. Export before switching computers.</p>
-      <button type="button" onClick={() => download('hve-squad-workshop-progress.json', JSON.stringify(saved, null, 2))}>Export progress</button>
-      <button type="button" className="danger" onClick={() => setResetOpen(true)}>Reset this guide's data</button>
+    <section><h2>{ui.browserDataHeading}</h2><p>{ui.browserDataBody}</p>
+      <button type="button" onClick={() => download('hve-squad-workshop-progress.json', JSON.stringify(saved, null, 2))}>{ui.exportProgressBtn}</button>
+      <button type="button" className="danger" onClick={() => setResetOpen(true)}>{ui.resetDataBtn}</button>
     </section>
   </article>
 
   return <div className={focusMode ? 'app focus-mode' : 'app'}>
-    <a className="skip-link" href="#main" onClick={event => { event.preventDefault(); main.current?.focus() }}>Skip to content</a>
+    <a className="skip-link" href="#main" onClick={event => { event.preventDefault(); main.current?.focus() }}>{ui.skipToContent}</a>
     <header className="topbar">
-      <a className="brand" href="#overview"><img src={`${base}hve-squad-logo.svg`} alt="" width="44" height="44" /><span><strong>HVE Squad</strong><small>Hands-on workshop</small></span></a>
+      <a className="brand" href="#overview"><img src={`${base}hve-squad-logo.svg`} alt="" width="44" height="44" /><span><strong>HVE Squad</strong><small>{ui.brandSubtitle}</small></span></a>
       <div className="header-actions">
-        <button type="button" aria-expanded={setupOpen} onClick={() => setSetupOpen(!setupOpen)}>Session setup</button>
-        <a className="button" href={docsUrl} target="_blank" rel="noreferrer">Docs</a>
-        <button type="button" aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`} onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>{theme === 'light' ? 'Dark' : 'Light'}</button>
-        <button className="mobile-menu" type="button" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>Parts</button>
+        <div className="segmented lang-switch" role="group" aria-label={ui.languageLabel}>
+          {locales.map(code => <button type="button" key={code} aria-pressed={lang === code} onClick={() => updateSetting('language', code)}>{localeLabels[code]}</button>)}
+        </div>
+        <button type="button" aria-expanded={setupOpen} onClick={() => setSetupOpen(!setupOpen)}>{ui.sessionSetupBtn}</button>
+        <a className="button" href={bundle.docsUrl} target="_blank" rel="noreferrer">{ui.docsBtn}</a>
+        <button type="button" aria-label={ui.switchThemeTo(theme === 'light' ? 'dark' : 'light')} onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>{theme === 'light' ? ui.themeDark : ui.themeLight}</button>
+        <button className="mobile-menu" type="button" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>{ui.mobilePartsBtn}</button>
       </div>
     </header>
-    {setupOpen && <section className="session-setup" aria-label="Session setup">
-      <div className="setup-heading"><div><h2>Session setup</h2><p>Stored only in this browser. The guide uses these values to complete the requests you copy. Never enter passwords or tokens.</p></div><button type="button" onClick={() => setSetupOpen(false)}>Close</button></div>
+    {setupOpen && <section className="session-setup" aria-label={ui.sessionSetupHeading}>
+      <div className="setup-heading"><div><h2>{ui.sessionSetupHeading}</h2><p>{ui.sessionSetupIntro}</p></div><button type="button" onClick={() => setSetupOpen(false)}>{ui.closeBtn}</button></div>
       <div className="settings-group">{trackPicker('Session setup', true)}</div>
-      <div className="settings-group"><h3>Team names · Parts 04–08</h3><p className="small">Keep the suggestions unless a squad registers a different name; then type the registered name here. Only the teams of your tracks are listed.</p>
-        <div className="settings-grid">{(['productSquad', ...chosen.map(track => track.squadKey)] as SquadKey[]).map(key => <label key={key}>{squadLabels[key]}
-          <span className="help">{fieldHelp[key]}</span>
-          <input value={settings[key]} maxLength={60} aria-invalid={!!squadNameError(settings[key])} onChange={event => updateSetting(key, event.target.value)} />
-          {squadNameError(settings[key]) && <span role="alert">{squadNameError(settings[key])}</span>}
+      <div className="settings-group"><h3>{ui.teamNamesHeading}</h3><p className="small">{ui.teamNamesIntro}</p>
+        <div className="settings-grid">{(['productSquad', ...chosen.map(track => track.squadKey)] as SquadKey[]).map(key => <label key={key}>{ui.squadLabels[key]}
+          <span className="help">{ui.fieldHelp[key]}</span>
+          <input value={settings[key]} maxLength={60} aria-invalid={!!squadNameError(settings[key], lang)} onChange={event => updateSetting(key, event.target.value)} />
+          {squadNameError(settings[key], lang) && <span role="alert">{squadNameError(settings[key], lang)}</span>}
         </label>)}</div>
       </div>
-      <div className="settings-group"><h3>Azure DevOps · Part 03 only (optional)</h3>
-        <div className="settings-grid">{publicationFields.map(key => <label key={key}>{publicationLabels[key]}
-          <span className="help">{fieldHelp[key]}</span>
+      <div className="settings-group"><h3>{ui.adoHeading}</h3>
+        <div className="settings-grid">{publicationFields.map(key => <label key={key}>{ui.publicationLabels[key]}
+          <span className="help">{ui.fieldHelp[key]}</span>
           <input value={settings[key]} maxLength={300} onChange={event => updateSetting(key, event.target.value)} />
         </label>)}</div>
       </div>
     </section>}
     <div className="layout">
       <aside className={menuOpen ? 'sidebar open' : 'sidebar'} aria-label="Workshop navigation">
-        <div className="sidebar-heading">Your journey</div>
+        <div className="sidebar-heading">{ui.sidebarHeading}</div>
         <nav>
-          <a href="#overview" aria-current={page === 'overview' ? 'page' : undefined}><span className="nav-number">↗</span>Overview</a>
+          <a href="#overview" aria-current={page === 'overview' ? 'page' : undefined}><span className="nav-number">↗</span>{ui.overviewNav}</a>
           {visible.map(lesson => {
             const ids = [...lesson.checks.map((_, index) => lessonCheckId(lesson.id, index)), ...(lesson.setup ?? []).map(step => setupCheckId(step.id))]
             const done = ids.every(id => saved.checked.includes(id))
+            const mins = lessonMinutes(lesson, settings)
             return <a key={lesson.id} href={`#${lesson.id}`} aria-current={page === lesson.id ? 'page' : undefined}>
               <span className={done ? 'nav-number done' : 'nav-number'}>{done ? '✓' : lesson.number}</span>
-              <span>{lesson.title}{lesson.optional && <span className="optional-tag">optional</span>}<small>{lesson.minutes ? `${lesson.minutes} min` : 'Before the session'}</small></span>
+              <span>{lesson.title}{lesson.optional && <span className="optional-tag">{ui.optionalBadge}</span>}<small>{mins ? `${mins} ${ui.minutesSuffix}` : ui.beforeSessionLabel}</small></span>
             </a>
           })}
-          <a href="#resources" aria-current={page === 'resources' ? 'page' : undefined}><span className="nav-number">＋</span>Resources</a>
+          <a href="#resources" aria-current={page === 'resources' ? 'page' : undefined}><span className="nav-number">＋</span>{ui.resourcesNav}</a>
         </nav>
         <div className="progress-box">
-          <div><strong>Your progress</strong><span>{stats.percent}%</span></div>
-          <div className="progress-track" role="progressbar" aria-label="Core checkpoints completed" aria-valuemin={0} aria-valuemax={stats.coreTotal} aria-valuenow={stats.core}><span style={{ width: `${stats.percent}%` }} /></div>
-          <p>{stats.core} of {stats.coreTotal} core checkpoints · {stats.optional} of {stats.optionalTotal} optional</p>
-          <button type="button" onClick={() => download('hve-squad-workshop-progress.json', JSON.stringify(saved, null, 2))}>Export progress</button>
+          <div><strong>{ui.progressHeading}</strong><span>{stats.percent}%</span></div>
+          <div className="progress-track" role="progressbar" aria-label={ui.coreCheckpointsAria} aria-valuemin={0} aria-valuemax={stats.coreTotal} aria-valuenow={stats.core}><span style={{ width: `${stats.percent}%` }} /></div>
+          <p>{ui.progressSummary(stats.core, stats.coreTotal, stats.optional, stats.optionalTotal)}</p>
+          <button type="button" onClick={() => download('hve-squad-workshop-progress.json', JSON.stringify(saved, null, 2))}>{ui.exportProgressBtn}</button>
         </div>
       </aside>
       <main id="main" className="main-content" ref={main} tabIndex={-1}>
         <div className="content-toolbar">
-          <div className="segmented" role="tablist" aria-label="Copilot client">{clients.map(value => <button
+          <div className="segmented" role="tablist" aria-label={ui.clientTablistAria}>{clients.map(value => <button
             type="button" role="tab" id={`client-${value}`} key={value} aria-selected={settings.experience === value} tabIndex={settings.experience === value ? 0 : -1}
             onClick={() => updateSetting('experience', value)}
             onKeyDown={event => {
               const next = nextClient(value, event.key)
               if (next) { event.preventDefault(); updateSetting('experience', next); document.getElementById(`client-${next}`)?.focus() }
-            }}>{clientLabels[value]}{value === 'cli' && <span className="optional-tag">recommended</span>}</button>)}</div>
-          <div><button type="button" aria-pressed={focusMode} onClick={() => setFocusMode(!focusMode)}>{focusMode ? 'Show navigation' : 'Focus view'}</button><button type="button" onClick={() => window.print()}>Print guide</button></div>
+            }}>{clientLabels[value]}{value === 'cli' && <span className="optional-tag">{ui.recommendedBadge}</span>}</button>)}</div>
+          <div><button type="button" aria-pressed={focusMode} onClick={() => setFocusMode(!focusMode)}>{focusMode ? ui.showNavBtn : ui.focusViewBtn}</button><button type="button" onClick={() => window.print()}>{ui.printGuideBtn}</button></div>
         </div>
-        <p className="client-note">Your client: <strong>{clientLabels[settings.experience]}</strong>. {clientAdvice[settings.experience]} Every request below is the same text in every client, to paste into the selected agent's chat; the line above each block says how to select the agent in your client. Work requests also carry <code>routing="{settings.routing}"</code> — change it below or in <a href="#orient">Part 01</a>.</p>
-        {routingPicker('page')}
-        {storageError && <div className="notice warning" role="alert">{storageError}<button type="button" onClick={() => setResetOpen(true)}>Reset options</button></div>}
+        <p className="client-note">{ui.clientNotePrefix} <strong>{clientLabels[settings.experience]}</strong>. {bundle.clientAdvice[settings.experience]} {ui.clientNoteBody.beforePart}<a href="#orient">{ui.clientNoteBody.partLink}</a>{ui.clientNoteBody.afterPart}</p>
+        {executionControls('page')}
+        {storageError && <div className="notice warning" role="alert">{storageError}<button type="button" onClick={() => setResetOpen(true)}>{ui.resetOptionsBtn}</button></div>}
         <div className="status" role="status" aria-live="polite">{status}</div>
         {page === 'overview' ? overview : active ? renderLesson(active) : hiddenPage ? hiddenPage : page === 'resources' ? resources
-          : <section><h1>Page not found</h1><p>This link does not match a part of the workshop.</p><a href="#overview">Back to the overview</a></section>}
-        {active && <nav className="lesson-navigation" aria-label="Previous and next part">
-          <a href={`#${previousLesson?.id ?? 'overview'}`}>← {previousLesson?.title ?? 'Overview'}</a>
-          <a className="button primary" href={`#${nextLesson?.id ?? 'resources'}`}>{nextLesson?.title ?? 'Resources'} →</a>
+          : <section><h1>{ui.pageNotFoundTitle}</h1><p>{ui.pageNotFoundBody}</p><a href="#overview">{ui.backToOverview}</a></section>}
+        {active && <nav className="lesson-navigation" aria-label={ui.prevNextAria}>
+          <a href={`#${previousLesson?.id ?? 'overview'}`}>← {previousLesson?.title ?? ui.overviewNav}</a>
+          <a className="button primary" href={`#${nextLesson?.id ?? 'resources'}`}>{nextLesson?.title ?? ui.resourcesNav} →</a>
         </nav>}
         {visible.map(lesson => renderLesson(lesson, true))}
-        <footer><span>HVE Squad hands-on workshop · Northwind Traders is fictitious</span><span>Built for <a href={squadReleaseUrl} target="_blank" rel="noreferrer">HVE Squad v{squadVersion}</a>, the latest release · tracks: {chosen.map(track => track.label).join(', ')} · {stats.coreTotal} core checkpoints</span></footer>
+        <footer><span>{ui.footerLeft}</span><span>{ui.footerRight.builtFor} <a href={squadReleaseUrl} target="_blank" rel="noreferrer">HVE Squad v{squadVersion}</a>, {ui.footerRight.latestRelease} · {ui.footerRight.tracksLabel}: {chosen.map(track => track.label).join(', ')} · {stats.coreTotal} {ui.footerRight.checkpointsLabel}</span></footer>
       </main>
     </div>
     <dialog ref={resetDialog} className="reset-dialog" aria-labelledby="reset-title" onClose={() => setResetOpen(false)}>
-      <h2 id="reset-title">Reset this guide's data?</h2>
-      <p>This removes your checkpoints and Session setup for this workshop from this browser. Your northwind-workshop folder is not touched.</p>
-      <button autoFocus type="button" onClick={() => setResetOpen(false)}>Keep my data</button>{' '}
+      <h2 id="reset-title">{ui.resetDialogTitle}</h2>
+      <p>{ui.resetDialogBody}</p>
+      <button autoFocus type="button" onClick={() => setResetOpen(false)}>{ui.keepDataBtn}</button>{' '}
       <button type="button" className="danger" onClick={() => {
         try {
           localStorage.removeItem(storageKey)
-          setSaved({ schema: 1, checked: [], settings: { ...defaults, tracks: [...defaults.tracks] } })
+          setSaved({ schema: 1, checked: [], settings: { ...defaults, tracks: [...defaults.tracks], language: lang } })
           setStorageError('')
-          setStatus('This guide\'s browser data was reset.')
+          setStatus(ui.resetDoneStatus)
         } catch (error) {
           setStatus(`Reset failed: ${error instanceof Error ? error.message : String(error)}`)
         }
         setResetOpen(false)
-      }}>Reset</button>
+      }}>{ui.confirmResetBtn}</button>
     </dialog>
   </div>
 }

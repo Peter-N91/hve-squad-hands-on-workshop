@@ -8,11 +8,17 @@ Fill in only the sections of the tracks you chose.
 | Name | |
 | Date | |
 | Copilot client and version | |
-| Model (not Auto) | |
-| Model routing (off / ranked / manual) | |
-| HVE Squad version (as shown by your client) | |
+| Session model (not Auto) | |
+| Model routing (off / ranked / economy / manual) | |
+| Work depth (standard / quick) | |
+| HVE Squad version (as shown by your client & Squad Doctor) | |
 | Delivery tracks (Azure / .NET / Power Platform) | |
 | Product scope (whole case / chosen areas only) | |
+
+## 01 · Squad Coach (re-imagine Northwind)
+
+- High-value product, architecture or automation ideas Squad Coach highlighted:
+- Profiles and packs Squad Coach recommended vs the workshop path:
 
 ## 02 · Product
 
@@ -50,6 +56,7 @@ Notes on the team proposal, council and decisions:
 
 | Measure | Value |
 |---|---|
+| azure-cloud pack offered / selected? Official skills installed? | |
 | Blockers from the review key found unprompted (of 12) | |
 | Blockers with file evidence | |
 | Bicep files that build / total | |
@@ -62,6 +69,7 @@ Notes on the team proposal, council and decisions:
 
 | Measure | Value |
 |---|---|
+| dotnet pack offered / selected? Official skills installed? | |
 | dotnet build succeeds? | |
 | Tests passing / total (legacy: 28) | |
 | Changed expected values in pricing tests | |
@@ -73,7 +81,7 @@ Notes on the team proposal, council and decisions:
 | Measure | Value |
 |---|---|
 | power-platform pack proposed without being asked? (yes/no) | |
-| Pack specialists installed? (yes/no, why) | |
+| Pack Primaries, external Alternates or official skills used? | |
 | Traps from the review key addressed unprompted (of 10) | |
 | JSON files under powerplatform/ that parse / total | |
 | Estimated monthly licences and run cost vs EUR 900 (C-08) | |
@@ -84,12 +92,20 @@ Notes on the team proposal, council and decisions:
 - Did the coordinator resume without paths?
 - One verified claim per team:
 - Open dependencies between tracks:
+- Optional Squad Document or Governance Report notes:
 - Next three actions:
 
-## 09 · Reflection
+## 09 · Custom agents & Squad Connector (optional)
+
+- Endpoint scaffolded (agent or orchestrator) & manifest validated?
+- Binding mode tested (add or replace) and target role:
+- External provenance recorded in history/Squad Connector.md?
+
+## 10 · Reflection
 
 - A human decision that improved the result:
 - Something the squad did well on its own:
+- How routing, depth and packs affected quality, speed and token cost:
 - Something missing or wrong:
 - One practice I will adopt, and where:
 - Approximate premium requests or tokens used:
